@@ -7,7 +7,7 @@ automatic_scaling:
   max_instances: 1
 
 handlers:
-  - url: /api/.*
+  - url: /v1/.*
     script: auto
     secure: always
 

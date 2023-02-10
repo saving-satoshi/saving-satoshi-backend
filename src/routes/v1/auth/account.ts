@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import authenticated from '../../../middleware/authenticated'
+import { authenticated } from '../../../middleware'
 import { RequestWithToken } from '../../../types'
 
 const router = Router()

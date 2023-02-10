@@ -11,7 +11,9 @@
     "build": "npx tsc",
     "lint": "eslint .",
     "prettier": "prettier --write --ignore-unknown .",
-    "prettier:check": "prettier --check --ignore-unknown ."
+    "prettier:check": "prettier --check --ignore-unknown .",
+    "db:init": "node db/scripts/init.js",
+    "db:migrate": "node db/scripts/migrate.js"
   },
   "lint-staged": {
     "**/*.{js,ts}": "prettier --write"

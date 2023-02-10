@@ -1,9 +1,10 @@
-import { verify } from '../token'
+import { verify } from '../lib/token'
+import { ACCESS_TOKEN_COOKIE_NAME } from '../lib/cookie'
 import { Account, RequestWithToken } from '../types'
 
 export default async function authenticated(req: RequestWithToken, res, next) {
   try {
-    req.token = req.cookies['saving-satoshi-token']
+    req.token = req.cookies[ACCESS_TOKEN_COOKIE_NAME]
 
     if (!req.token) {
       throw new Error('Authorization token is missing.')

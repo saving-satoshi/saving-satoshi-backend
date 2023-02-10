@@ -1,8 +1,12 @@
 import Joi from 'joi'
 import { Router } from 'express'
-import { formatValidationErrors } from '../../../utils'
+import { formatValidationErrors } from '../../../lib/utils'
 import { Account } from '../../../models'
-import { generate } from '../../../token'
+import { generate } from '../../../lib/token'
+import {
+  ACCESS_TOKEN_COOKIE_NAME,
+  ACCESS_TOKEN_COOKIE_SETTINGS,
+} from '../../../lib/cookie'
 
 const router = Router()
 
@@ -28,12 +32,9 @@ router.post('/', async (req, res) => {
     const token = await generate(account)
 
     res
-      .cookie('saving-satoshi-token', token, {
-        maxAge: 1000 * 60 * 60,
-        httpOnly: true,
-      })
+      .cookie(ACCESS_TOKEN_COOKIE_NAME, token, ACCESS_TOKEN_COOKIE_SETTINGS)
       .status(200)
-      .json(account)
+      .json({})
   } catch (err) {
     res.status(500).json({
       errors: [

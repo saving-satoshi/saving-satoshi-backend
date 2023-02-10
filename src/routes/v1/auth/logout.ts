@@ -1,5 +1,9 @@
 import { Router } from 'express'
-import authenticated from '../../../middleware/authenticated'
+import { authenticated } from '../../../middleware'
+import {
+  ACCESS_TOKEN_COOKIE_NAME,
+  ACCESS_TOKEN_COOKIE_SETTINGS,
+} from '../../../lib/cookie'
 import { RequestWithToken } from '../../../types'
 
 const router = Router()
@@ -10,10 +14,7 @@ router.get('/', authenticated, async (req: RequestWithToken, res) => {
   }
 
   res
-    .clearCookie('saving-satoshi-token', {
-      maxAge: 1000 * 60 * 60,
-      httpOnly: true,
-    })
+    .clearCookie(ACCESS_TOKEN_COOKIE_NAME, ACCESS_TOKEN_COOKIE_SETTINGS)
     .status(200)
     .json({})
 })

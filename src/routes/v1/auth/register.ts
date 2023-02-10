@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { Account } from '../../../models'
-import { formatValidationErrors } from '../../../utils'
+import { formatValidationErrors } from '../../../lib/utils'
 
 const router = Router()
 
@@ -22,7 +22,7 @@ router.post('/', async (req, res) => {
 
     const account = await Account.create(req.body)
 
-    res.status(200).json(account)
+    res.status(200).json({ id: account.id })
   } catch (err) {
     res.status(500).json({
       errors: [

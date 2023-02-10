@@ -12,12 +12,7 @@ async function run() {
   const app = express()
 
   app.use(bodyParser.json())
-  app.use(
-    cookieParser(process.env.SECRET, {
-      maxAge: 1000 * 60 * 60,
-      httpOnly: true,
-    })
-  )
+  app.use(cookieParser())
 
   app.use('/v1', v1)
 
