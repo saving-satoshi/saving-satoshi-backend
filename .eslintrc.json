@@ -1,0 +1,4 @@
+{
+  "ignorePatterns": ["dist", "db"],
+  "extends": ["prettier"]
+}
