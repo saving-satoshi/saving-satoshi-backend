@@ -4,19 +4,19 @@ import { Account } from '../types'
 
 export const schema = Joi.object({
   avatar: Joi.string().uri(),
-  code: Joi.string().min(64).max(64).required(),
+  private_key: Joi.string().min(64).max(64).required(),
 })
 
 export const validate = (data: Record<string, any>, joiOptions) => {
   return schema.validate(data, joiOptions)
 }
 
-export const exists = async (code: string): Promise<boolean> => {
+export const exists = async (column: string, id: string): Promise<boolean> => {
   const client = await db.getClient()
 
   try {
     await db.begin(client)
-    const result = await db.exists(client, 'accounts', { code })
+    const result = await db.exists(client, 'accounts', { [column]: id })
     await db.commit(client)
     return result
   } catch (ex) {
@@ -34,8 +34,8 @@ export const create = async (data: Account) => {
     await db.begin(client)
     const result = await db.query(
       client,
-      'INSERT INTO accounts(code, avatar) VALUES($1, $2) ON CONFLICT (code) DO NOTHING returning *',
-      [data.code, data.avatar]
+      'INSERT INTO accounts(private_key, avatar) VALUES($1, $2) ON CONFLICT (private_key) DO NOTHING returning *',
+      [data.private_key, data.avatar]
     )
     await db.commit(client)
 
@@ -48,15 +48,15 @@ export const create = async (data: Account) => {
   }
 }
 
-export const find = async (code: string) => {
+export const find = async (column: string, value: string) => {
   const client = await db.getClient()
 
   try {
     await db.begin(client)
     const result = await db.query(
       client,
-      'SELECT * FROM accounts WHERE code = $1',
-      [code]
+      `SELECT * FROM accounts WHERE ${column} = $1`,
+      [value]
     )
     await db.commit(client)
 

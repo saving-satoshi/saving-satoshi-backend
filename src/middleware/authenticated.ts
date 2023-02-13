@@ -14,7 +14,6 @@ export default async function authenticated(req: RequestWithToken, res, next) {
 
     req.account = {
       id: account.id,
-      code: account.code,
       avatar: account.avatar,
     }
 

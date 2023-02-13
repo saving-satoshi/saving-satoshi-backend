@@ -11,7 +11,7 @@ import {
 const router = Router()
 
 const schema = Joi.object({
-  code: Joi.string().min(64).max(64).required(),
+  private_key: Joi.string().min(64).max(64).required(),
 })
 
 router.post('/', async (req, res) => {
@@ -24,11 +24,11 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    if (!(await Account.exists(req.body.code))) {
+    if (!(await Account.exists('private_key', req.body.private_key))) {
       throw new Error('Invalid credentials.')
     }
 
-    const account = await Account.find(req.body.code)
+    const account = await Account.find('private_key', req.body.private_key)
     const token = await generate(account)
 
     res

@@ -16,7 +16,7 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    if (await Account.exists(req.body.code)) {
+    if (await Account.exists('private_key', req.body.private_key)) {
       throw new Error('Account already exists.')
     }
 

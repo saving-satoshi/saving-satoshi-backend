@@ -2,7 +2,7 @@ import { Request } from 'express'
 
 export interface Account {
   id: number
-  code: string
+  private_key?: string
   avatar: string
 }
 
