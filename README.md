@@ -26,6 +26,10 @@ To run this project locally using Docker:
 1. Run `docker build -t saving-satoshi-backend .` in the root folder.
 2. Run `docker run -p 8000:8000 saving-satoshi-backend`
 
+## Postman
+
+You can find our Postman workspace [here](https://www.postman.com/saving-satoshi/workspace/saving-satoshi/collection/1182590-df829bc3-2d1a-43dc-8048-8480dfd02f75?ctx=documentation).
+
 ## Roadmap
 
 TBD
