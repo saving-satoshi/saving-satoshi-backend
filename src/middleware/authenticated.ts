@@ -1,6 +1,6 @@
-import { verify } from '../lib/token'
-import { ACCESS_TOKEN_COOKIE_NAME } from '../lib/cookie'
-import { Account, RequestWithToken } from '../types'
+import { verify } from 'lib/token'
+import { ACCESS_TOKEN_COOKIE_NAME } from 'lib/cookie'
+import { Account, RequestWithToken } from 'types'
 
 export default async function authenticated(req: RequestWithToken, res, next) {
   try {

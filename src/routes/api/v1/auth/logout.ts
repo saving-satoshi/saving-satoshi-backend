@@ -1,10 +1,10 @@
 import { Router } from 'express'
-import { authenticated } from '../../../middleware'
+import { authenticated } from 'middleware'
 import {
   ACCESS_TOKEN_COOKIE_NAME,
   ACCESS_TOKEN_COOKIE_SETTINGS,
-} from '../../../lib/cookie'
-import { RequestWithToken } from '../../../types'
+} from 'lib/cookie'
+import { RequestWithToken } from 'types'
 
 const router = Router()
 

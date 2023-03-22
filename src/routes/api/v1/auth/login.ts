@@ -1,12 +1,12 @@
 import Joi from 'joi'
 import { Router } from 'express'
-import { formatValidationErrors } from '../../../lib/utils'
-import { Account } from '../../../models'
-import { generate } from '../../../lib/token'
+import { formatValidationErrors } from 'lib/utils'
+import { Account } from 'models'
+import { generate } from 'lib/token'
 import {
   ACCESS_TOKEN_COOKIE_NAME,
   ACCESS_TOKEN_COOKIE_SETTINGS,
-} from '../../../lib/cookie'
+} from 'lib/cookie'
 
 const router = Router()
 
@@ -28,7 +28,7 @@ router.post('/', async (req, res) => {
       throw new Error('Invalid credentials.')
     }
 
-    const account = await Account.find('private_key', req.body.private_key)
+    const account = await Account.find({ private_key: req.body.private_key })
     const token = await generate(account)
 
     res

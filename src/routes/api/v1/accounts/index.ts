@@ -1,10 +1,10 @@
 import { Router } from 'express'
 import Joi from 'joi'
 
-import { authenticated } from '../../../middleware'
-import { RequestWithToken } from '../../../types'
-import { formatValidationErrors } from '../../../lib/utils'
-import { Account } from '../../../models'
+import { authenticated } from 'middleware'
+import { RequestWithToken } from 'types'
+import { formatValidationErrors } from 'lib/utils'
+import { Account } from 'models'
 
 const router = Router()
 
@@ -28,7 +28,7 @@ router.get('/:accountId', authenticated, async (req: RequestWithToken, res) => {
       throw new Error('Account not found.')
     }
 
-    const account = await Account.find('id', accountId)
+    const account = await Account.find({ id: accountId })
 
     delete account.private_key
 

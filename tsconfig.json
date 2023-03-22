@@ -6,7 +6,15 @@
     "moduleResolution": "node",
     "sourceMap": true,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "baseUrl": "./src",
+    "paths": {
+      "lib/*": ["lib/*"],
+      "middleware/*": ["middleware/*"],
+      "models/*": ["models/*"],
+      "routes/*": ["routes/*"],
+      "types/*": ["types/*"],
+    }
     // "strict": true,
     // "noImplicitAny": true,
     // "strictNullChecks": true,

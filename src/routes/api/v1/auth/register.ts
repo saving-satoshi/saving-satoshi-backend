@@ -1,6 +1,6 @@
 import { Router } from 'express'
-import { Account } from '../../../models'
-import { formatValidationErrors } from '../../../lib/utils'
+import { Account } from 'models'
+import { formatValidationErrors } from 'lib/utils'
 
 const router = Router()
 
@@ -20,7 +20,7 @@ router.post('/', async (req, res) => {
       throw new Error('Account already exists.')
     }
 
-    const account = await Account.create(req.body)
+    const account = await Account.create(req.body, { uniqueOn: 'private_key' })
 
     res.status(200).json({ id: account.id })
   } catch (err) {

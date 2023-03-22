@@ -1,12 +1,13 @@
 require('dotenv').config()
+import 'module-alias/register'
 
 import express from 'express'
 import bodyParser from 'body-parser'
 import cookieParser from 'cookie-parser'
 
-import { v1 } from './routes'
+import { api } from './routes'
 
-const port = process.env.PORT || 3001
+const port = process.env.PORT
 
 async function run() {
   const app = express()
@@ -14,9 +15,9 @@ async function run() {
   app.use(bodyParser.json())
   app.use(cookieParser())
 
-  app.use('/v1', v1)
+  app.use('/api', api)
 
-  app.listen(port || 3001, () => {
+  app.listen(port, () => {
     console.log(`listening on http://localhost:${port}`)
   })
 }

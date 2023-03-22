@@ -41,7 +41,7 @@ export const release = (client) => {
   client.release()
 }
 
-const createWhereClause = (
+export const createWhereClause = (
   conditions: Record<string, any>
 ): {
   clause: string
@@ -58,4 +58,24 @@ const createWhereClause = (
   }, '')
 
   return { clause, values }
+}
+
+export const createKeys = (keys) => {
+  return Object.keys(keys).join(', ')
+}
+
+export const createValues = (values) => {
+  return Object.values(values)
+    .map((val) => {
+      if (val === null || val === undefined) {
+        return 'NULL'
+      } else if (!isNaN(Number(val))) {
+        return val
+      } else {
+        const str = val as string
+        const escapedVal = str.replace(/'/g, "''")
+        return `'${escapedVal}'`
+      }
+    })
+    .join(', ')
 }
