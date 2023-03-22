@@ -8,7 +8,7 @@ import { RequestWithToken } from 'types'
 
 const router = Router()
 
-router.get('/', authenticated, async (req: RequestWithToken, res) => {
+router.post('/', authenticated, async (req: RequestWithToken, res) => {
   if (!req.account) {
     return res.status(403).json({ errors: [{ message: 'Forbidden.' }] })
   }
