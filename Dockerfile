@@ -9,7 +9,6 @@ RUN yarn
 COPY . .
 
 RUN yarn build
-RUN yarn db:init
 RUN yarn db:migrate
 
 EXPOSE 8000
