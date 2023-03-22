@@ -56,17 +56,24 @@ abstract class Model {
     }
   }
 
-  async find(data: any) {
+  async find(data?: any) {
     const client = await db.getClient()
-    const { clause, values } = db.createWhereClause(data)
 
     try {
       await db.begin(client)
-      const result = await db.query(
-        client,
-        `SELECT * FROM ${this.table} WHERE ${clause}`,
-        values
-      )
+
+      let result
+      if (data) {
+        const { clause, values } = db.createWhereClause(data)
+        result = await db.query(
+          client,
+          `SELECT * FROM ${this.table} WHERE ${clause}`,
+          values
+        )
+      } else {
+        result = await db.query(client, `SELECT * FROM ${this.table}`, [])
+      }
+
       await db.commit(client)
 
       return result.rows[0]
