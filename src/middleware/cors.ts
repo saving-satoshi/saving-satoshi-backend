@@ -9,7 +9,7 @@ export default (req, res, next) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin)
   res.header(
     'Access-Control-Allow-Headers',
-    'Origin,Content-Type,Authorization'
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization'
   )
   res.header('Access-Control-Allow-Credentials', 'true')
   res.header('Access-Control-Allow-Methods', 'OPTIONS,GET,PUT,POST,DELETE')
