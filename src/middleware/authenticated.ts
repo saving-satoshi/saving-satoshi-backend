@@ -19,6 +19,8 @@ export default async function authenticated(req: RequestWithToken, res, next) {
 
     next()
   } catch (ex) {
-    return res.status(403).json({ errors: [{ message: 'Forbidden.' }] })
+    return res
+      .status(403)
+      .json({ errors: [{ message: ex.message || 'Forbidden.' }] })
   }
 }

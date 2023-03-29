@@ -3,7 +3,7 @@ const isProd = process.env.ENV === 'production'
 
 export default (req, res, next) => {
   if (isProd && whitelist.indexOf(req.headers.origin) === -1) {
-    return res.status(403).json({ error: 'Forbidden' })
+    return res.status(403).json({ error: 'Not in whitelist' })
   }
 
   res.header('Access-Control-Allow-Origin', req.headers.origin)
