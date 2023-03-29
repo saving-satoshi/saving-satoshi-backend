@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { authenticated } from 'middleware'
 import {
   ACCESS_TOKEN_COOKIE_NAME,
-  ACCESS_TOKEN_COOKIE_SETTINGS,
+  ACCESS_TOKEN_COOKIE_OPTIONS,
 } from 'lib/cookie'
 import { RequestWithToken } from 'types'
 
@@ -14,7 +14,7 @@ router.post('/', authenticated, async (req: RequestWithToken, res) => {
   }
 
   res
-    .clearCookie(ACCESS_TOKEN_COOKIE_NAME, ACCESS_TOKEN_COOKIE_SETTINGS)
+    .clearCookie(ACCESS_TOKEN_COOKIE_NAME, ACCESS_TOKEN_COOKIE_OPTIONS)
     .status(200)
     .json({})
 })
