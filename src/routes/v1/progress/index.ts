@@ -1,11 +1,11 @@
 import { Router } from 'express'
 
-import save from './save'
+import set from './set'
 import get from './get'
 
 const router = Router()
 
-router.use('/save', save)
+router.use('/', set)
 router.use('/', get)
 
 export default router

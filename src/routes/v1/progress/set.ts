@@ -22,8 +22,14 @@ router.put('/', authenticated, async (req: RequestWithToken, res) => {
 
       res.status(200).json(progress)
     }
-  } catch (ex) {
-    console.log(ex)
+  } catch (err) {
+    res.status(500).json({
+      errors: [
+        {
+          message: err.message,
+        },
+      ],
+    })
   }
 })
 
