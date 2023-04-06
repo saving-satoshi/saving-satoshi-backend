@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { Account } from 'models'
+import { Account, Progress } from 'models'
 import { formatValidationErrors } from 'lib/utils'
 
 const router = Router()
@@ -21,6 +21,11 @@ router.post('/', async (req, res) => {
     }
 
     const account = await Account.create(req.body, { uniqueOn: 'private_key' })
+
+    const progress = await Progress.create(
+      { account: account.id, progress: 'CH1GEN1' },
+      { uniqueOn: 'account' }
+    )
 
     res.status(200).json({ id: account.id })
   } catch (err) {

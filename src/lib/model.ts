@@ -12,7 +12,7 @@ abstract class Model {
     return this.schema.validate(data, options)
   }
 
-  async exists(column: string, id: string): Promise<boolean> {
+  async exists(column: string, id: string | number): Promise<boolean> {
     const client = await db.getClient()
 
     try {
@@ -83,6 +83,46 @@ abstract class Model {
     } finally {
       db.release(client)
     }
+  }
+
+  async update(data: any, match?: any) {
+    const client = await db.getClient()
+
+    try {
+      await db.begin(client)
+
+      let result
+      const { clause: setClause, values: setValues } =
+        db.createWhereClause(data)
+
+      const { clause: whereClause, values: whereValues } = db.createWhereClause(
+        match,
+        setValues.length
+      )
+
+      result = await db.query(
+        client,
+        `UPDATE ${this.table} SET ${setClause} WHERE ${whereClause} RETURNING *`,
+        [...setValues, ...whereValues]
+      )
+
+      await db.commit(client)
+
+      return result.rows[0]
+    } catch (ex) {
+      await db.rollback(client)
+      throw ex
+    } finally {
+      db.release(client)
+    }
+  }
+
+  async updateOrCreate(data: any, match?: any) {
+    const existing = await this.find(match)
+    const action = !existing
+      ? this.create({ ...data, ...match }, { uniqueOn: 'account' })
+      : this.update(data, match)
+    return await action
   }
 }
 
