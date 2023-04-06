@@ -42,7 +42,8 @@ export const release = (client) => {
 }
 
 export const createWhereClause = (
-  conditions: Record<string, any>
+  conditions: Record<string, any>,
+  offset = 0
 ): {
   clause: string
   values: any[]
@@ -51,7 +52,7 @@ export const createWhereClause = (
   const values = keys.map((key) => conditions[key])
 
   const clause = keys.reduce((result, key, index) => {
-    const condition = `${key} = $${index + 1}`
+    const condition = `${key} = $${index + 1 + offset}`
     const separator = index < keys.length - 1 ? ' AND ' : ''
 
     return `${result}${condition}${separator}`
