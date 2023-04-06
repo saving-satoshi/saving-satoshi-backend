@@ -23,7 +23,7 @@ router.post('/', async (req, res) => {
     const account = await Account.create(req.body, { uniqueOn: 'private_key' })
 
     const progress = await Progress.create(
-      { account: account.id, progress: 'CH1GEN1' },
+      { account: account.id, progress: 'CH1INT1' },
       { uniqueOn: 'account' }
     )
 
