@@ -8,7 +8,7 @@ class Account extends Model {
 
   get schema(): Joi.ObjectSchema<any> {
     return Joi.object({
-      avatar: Joi.string().uri(),
+      avatar: Joi.string(),
       private_key: Joi.string().min(64).max(64).required(),
     })
   }
