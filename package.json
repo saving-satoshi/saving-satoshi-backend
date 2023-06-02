@@ -8,7 +8,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "tsc-watch --onSuccess \"node ./dist/index.js\"",
-    "build": "yarn clean && tsc && yarn copy-files",
+    "build": "npm run clean && tsc && npm run copy-files",
     "lint": "eslint .",
     "clean": "rimraf dist/",
     "copy-files": "copyfiles -u 1 src/languages/**/* dist/",
