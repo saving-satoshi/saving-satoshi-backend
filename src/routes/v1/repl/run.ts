@@ -29,9 +29,10 @@ router.get('/:language/:id', async (req, res) => {
 
   let hasCompilationError = false
 
-  const runStream = new Stream(res, (r) => r, 'output')
+  const runStream = new Stream(res, language, (r) => r, 'output')
   const buildStream = new Stream(
     res,
+    language,
     (r) => {
       const { stream } = JSON.parse(r)
 
@@ -49,7 +50,7 @@ router.get('/:language/:id', async (req, res) => {
 
             val
               .split('\n')
-              .forEach((l) => runStream.send({ type: 'output', payload: l }))
+              .forEach((l) => runStream.send({ type: 'error', payload: l }))
 
             return null
           }
@@ -59,7 +60,7 @@ router.get('/:language/:id', async (req, res) => {
           const regex = /error(.*?):/gim
           if (regex.test(val)) {
             hasCompilationError = true
-            runStream.send({ type: 'output', payload: val })
+            runStream.send({ type: 'error', payload: val })
             return null
           }
           break
@@ -68,7 +69,7 @@ router.get('/:language/:id', async (req, res) => {
           const regex = /error(.*?):/gim
           if (regex.test(val)) {
             hasCompilationError = true
-            runStream.send({ type: 'output', payload: val })
+            runStream.send({ type: 'error', payload: val })
             return null
           }
           break
