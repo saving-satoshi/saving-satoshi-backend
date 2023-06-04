@@ -20,18 +20,14 @@ class Stream extends Writable {
     switch (this.language) {
       case 'python': {
         if (chunk.toString().indexOf('Traceback') !== -1) {
-          lines.forEach((line) => {
-            this.send({ type: 'error', payload: line })
-          })
+          this.send({ type: 'error', payload: chunk.toString() })
           return
         }
         break
       }
       case 'javascript': {
         if (chunk.toString().indexOf('Error:') !== -1) {
-          lines.forEach((line) => {
-            this.send({ type: 'error', payload: line })
-          })
+          this.send({ type: 'error', payload: chunk.toString() })
           return
         }
         break
