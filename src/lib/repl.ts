@@ -68,6 +68,7 @@ export async function run(id: string, language: string, ws: any) {
   }
 
   const send = (payload) => {
+    console.log(payload)
     ws.send(JSON.stringify({ ...payload, payload: payload.payload }))
   }
 

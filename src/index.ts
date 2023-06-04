@@ -7,7 +7,6 @@ import cookieParser from 'cookie-parser'
 import { cors } from 'middleware'
 import * as http from 'http'
 import * as WebSocket from 'ws'
-
 import * as repl from 'lib/repl'
 
 import { v1 } from './routes'
