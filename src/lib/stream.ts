@@ -16,10 +16,12 @@ class Stream extends Writable {
 
   _write(chunk, encoding, callback) {
     const lines = chunk.toString().trim().split('\n')
-
     switch (this.language) {
       case 'python': {
-        if (chunk.toString().indexOf('Traceback') !== -1) {
+        if (
+          chunk.toString().indexOf('Error:') !== -1 ||
+          chunk.toString().indexOf('Traceback') !== -1
+        ) {
           this.send({ type: 'error', payload: chunk.toString() })
           return
         }
