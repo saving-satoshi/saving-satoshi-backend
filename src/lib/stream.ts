@@ -1,18 +1,14 @@
 import { Writable } from 'stream'
-import { Response } from 'express'
-import Convert from 'ansi-to-html'
-
-const convert = new Convert()
 
 class Stream extends Writable {
-  res: Response
+  send: any
   language: string
-  transformer: (input: string) => string
+  transformer: any
   channel: string
 
-  constructor(res, language, transformer, channel) {
+  constructor(send: any, language: string, transformer: any, channel: string) {
     super()
-    this.res = res
+    this.send = send
     this.language = language
     this.transformer = transformer
     this.channel = channel
@@ -53,14 +49,6 @@ class Stream extends Writable {
     })
 
     callback()
-  }
-
-  send(payload) {
-    const buffer = JSON.stringify({
-      ...payload,
-      payload: convert.toHtml(payload.payload),
-    })
-    this.res.write(`data: ${buffer}\n\n`)
   }
 }
 
