@@ -107,30 +107,30 @@ function runContainer(id, send, writeStream): Promise<[any, any]> {
                 channel: 'runtime',
               })
 
-              setTimeout(() => {
-                if (isRunning) {
-                  send({
-                    type: 'error',
-                    payload: `RuntimeError: Script took to long to complete.`,
-                  })
+              // setTimeout(() => {
+              //   if (isRunning) {
+              //     send({
+              //       type: 'error',
+              //       payload: `RuntimeError: Script took to long to complete.`,
+              //     })
 
-                  container.kill(() => {
-                    send({
-                      type: 'debug',
-                      payload: `[system] Container ${container.id} killed.`,
-                      channel: 'runtime',
-                    })
+              //     container.kill(() => {
+              //       send({
+              //         type: 'debug',
+              //         payload: `[system] Container ${container.id} killed.`,
+              //         channel: 'runtime',
+              //       })
 
-                    container.remove(() => {
-                      send({
-                        type: 'debug',
-                        payload: `[system] Container ${container.id} removed.`,
-                        channel: 'runtime',
-                      })
-                    })
-                  })
-                }
-              }, 3000)
+              //       container.remove(() => {
+              //         send({
+              //           type: 'debug',
+              //           payload: `[system] Container ${container.id} removed.`,
+              //           channel: 'runtime',
+              //         })
+              //       })
+              //     })
+              //   }
+              // }, 3000)
             })
           }
         )
