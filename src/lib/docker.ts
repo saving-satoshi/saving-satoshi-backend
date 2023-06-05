@@ -81,6 +81,7 @@ function runContainer(id, send, writeStream): Promise<[any, any]> {
 
             // Listen for kill signal
             writeStream.onKill = () => {
+              console.log('got kill')
               isRunning = false
 
               container.remove(() => {
