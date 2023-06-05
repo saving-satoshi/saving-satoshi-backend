@@ -126,7 +126,7 @@ export async function run(id: string, language: string, ws: any) {
   try {
     send({
       type: 'debug',
-      payload: '[system] Building image...',
+      payload: '[system] Building Docker image...',
       channel: 'build',
     })
     await Docker.buildImage(rpath, id, buildStream, sourceFiles[language])
@@ -134,7 +134,7 @@ export async function run(id: string, language: string, ws: any) {
     console.log(ex)
     send({
       type: 'debug',
-      payload: `[system] Error building image: ${ex.message}`,
+      payload: `[system] Error building Docker image: ${ex.message}`,
       channel: 'build',
     })
   }
@@ -142,7 +142,7 @@ export async function run(id: string, language: string, ws: any) {
   if (hasCompilationError) {
     send({
       type: 'debug',
-      payload: `[system] Error building image.`,
+      payload: `[system] Error building Docker image.`,
       channel: 'build',
     })
     await fs.rm(rpath, { recursive: true })
@@ -151,18 +151,12 @@ export async function run(id: string, language: string, ws: any) {
 
   send({
     type: 'debug',
-    payload: '[system] Image built.',
+    payload: '[system] Docker image built.',
     channel: 'build',
   })
 
-  send({
-    type: 'debug',
-    payload: '[system] Running container...',
-    channel: 'runtime',
-  })
-
   try {
-    const [data, container] = await Docker.runContainer(id, runStream)
+    const [data, container] = await Docker.runContainer(id, send, runStream)
   } catch (ex) {
     console.log(ex)
     send({

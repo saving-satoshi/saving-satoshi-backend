@@ -1,10 +1,12 @@
 import { Writable } from 'stream'
-
+import Convert from 'ansi-to-html'
+const convert = new Convert()
 class Stream extends Writable {
   send: any
   language: string
   transformer: any
   channel: string
+  onKill: () => void
 
   constructor(send: any, language: string, transformer: any, channel: string) {
     super()
@@ -34,6 +36,10 @@ class Stream extends Writable {
         }
         break
       }
+    }
+
+    if (chunk.toString().indexOf('KILL') !== -1) {
+      return this.onKill()
     }
 
     lines.forEach((line) => {
