@@ -1,5 +1,6 @@
 import { Writable } from 'stream'
-
+import Convert from 'ansi-to-html'
+const convert = new Convert()
 class Stream extends Writable {
   send: any
   language: string
