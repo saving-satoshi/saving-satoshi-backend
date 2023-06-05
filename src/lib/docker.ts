@@ -3,6 +3,9 @@ import Docker from 'dockerode'
 
 const docker = new Docker()
 
+const MAX_SCRIPT_EXECUTION_TIME =
+  Number(process.env.MAX_SCRIPT_EXECUTION_TIME) || 10000
+
 function buildImage(p, id, logStream, files) {
   return new Promise((resolve, reject) => {
     docker.buildImage(
@@ -81,7 +84,6 @@ function runContainer(id, send, writeStream): Promise<[any, any]> {
 
             // Listen for kill signal
             writeStream.onKill = () => {
-              console.log('got kill')
               isRunning = false
 
               container.remove(() => {
@@ -107,30 +109,30 @@ function runContainer(id, send, writeStream): Promise<[any, any]> {
                 channel: 'runtime',
               })
 
-              // setTimeout(() => {
-              //   if (isRunning) {
-              //     send({
-              //       type: 'error',
-              //       payload: `RuntimeError: Script took to long to complete.`,
-              //     })
+              setTimeout(() => {
+                if (isRunning) {
+                  send({
+                    type: 'error',
+                    payload: `RuntimeError: Script took to long to complete.`,
+                  })
 
-              //     container.kill(() => {
-              //       send({
-              //         type: 'debug',
-              //         payload: `[system] Container ${container.id} killed.`,
-              //         channel: 'runtime',
-              //       })
+                  container.kill(() => {
+                    send({
+                      type: 'debug',
+                      payload: `[system] Container ${container.id} killed.`,
+                      channel: 'runtime',
+                    })
 
-              //       container.remove(() => {
-              //         send({
-              //           type: 'debug',
-              //           payload: `[system] Container ${container.id} removed.`,
-              //           channel: 'runtime',
-              //         })
-              //       })
-              //     })
-              //   }
-              // }, 3000)
+                    container.remove(() => {
+                      send({
+                        type: 'debug',
+                        payload: `[system] Container ${container.id} removed.`,
+                        channel: 'runtime',
+                      })
+                    })
+                  })
+                }
+              }, MAX_SCRIPT_EXECUTION_TIME)
             })
           }
         )
