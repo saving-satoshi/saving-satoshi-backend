@@ -16,32 +16,7 @@ class Stream extends Writable {
     this.channel = channel
   }
 
-  _write(chunk, encoding, callback) {
-    if (chunk.toString().indexOf('KILL') !== -1) {
-      return this.onKill()
-    }
-
-    const lines = chunk.toString().trim().split('\n')
-    switch (this.language) {
-      case 'python': {
-        if (
-          chunk.toString().indexOf('Error:') !== -1 ||
-          chunk.toString().indexOf('Traceback') !== -1
-        ) {
-          this.send({ type: 'error', payload: chunk.toString() })
-          return
-        }
-        break
-      }
-      case 'javascript': {
-        if (chunk.toString().indexOf('Error:') !== -1) {
-          this.send({ type: 'error', payload: chunk.toString() })
-          return
-        }
-        break
-      }
-    }
-
+  sendLines(lines) {
     lines.forEach((line) => {
       line = this.transformer(line)
       if (line) {
@@ -51,6 +26,61 @@ class Stream extends Writable {
         })
       }
     })
+  }
+
+  getError(chunk) {
+    let result = undefined
+
+    switch (this.language) {
+      case 'python': {
+        if (
+          chunk.toString().indexOf('Error:') !== -1 ||
+          chunk.toString().indexOf('Traceback') !== -1
+        ) {
+          result = chunk.toString()
+        }
+        break
+      }
+      case 'javascript': {
+        if (chunk.toString().indexOf('Error:') !== -1) {
+          result = chunk.toString()
+        }
+        break
+      }
+    }
+
+    if (result) {
+      result = result
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l !== 'KILL')
+        .join('\n')
+    }
+
+    return result
+  }
+
+  _write(chunk, encoding, callback) {
+    if (chunk.toString().indexOf('KILL') !== -1) {
+      const error = this.getError(chunk)
+      if (error) {
+        this.send({ type: 'error', payload: error })
+        return this.onKill()
+      }
+
+      const lines = chunk.toString().trim().split('\n')
+      this.sendLines(lines.filter((line) => line !== 'KILL'))
+
+      return this.onKill()
+    }
+
+    const error = this.getError(chunk)
+    if (error) {
+      return this.send({ type: 'error', payload: error })
+    }
+
+    const lines = chunk.toString().trim().split('\n')
+    this.sendLines(lines)
 
     callback()
   }
