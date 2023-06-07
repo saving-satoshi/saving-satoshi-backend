@@ -156,7 +156,7 @@ export async function run(id: string, language: string, ws: any) {
   })
 
   try {
-    const [data, container] = await Docker.runContainer(id, send, runStream)
+    const success = await Docker.runContainer(id, send, runStream)
   } catch (ex) {
     console.log(ex)
     send({

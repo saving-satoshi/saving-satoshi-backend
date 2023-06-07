@@ -31,7 +31,7 @@ function buildImage(p, id, logStream, files) {
   })
 }
 
-function runContainer(id, send, writeStream): Promise<[any, any]> {
+function runContainer(id, send, writeStream): Promise<boolean> {
   return new Promise(async (resolve, reject) => {
     send({
       type: 'debug',
@@ -85,6 +85,7 @@ function runContainer(id, send, writeStream): Promise<[any, any]> {
             // Listen for kill signal
             writeStream.onKill = () => {
               isRunning = false
+              resolve(true)
 
               container.remove(() => {
                 send({
@@ -115,6 +116,8 @@ function runContainer(id, send, writeStream): Promise<[any, any]> {
                     type: 'error',
                     payload: `RuntimeError: Script took to long to complete.`,
                   })
+
+                  resolve(false)
 
                   container.kill(() => {
                     send({

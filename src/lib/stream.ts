@@ -17,6 +17,10 @@ class Stream extends Writable {
   }
 
   _write(chunk, encoding, callback) {
+    if (chunk.toString().indexOf('KILL') !== -1) {
+      return this.onKill()
+    }
+
     const lines = chunk.toString().trim().split('\n')
     switch (this.language) {
       case 'python': {
@@ -36,10 +40,6 @@ class Stream extends Writable {
         }
         break
       }
-    }
-
-    if (chunk.toString().indexOf('KILL') !== -1) {
-      return this.onKill()
     }
 
     lines.forEach((line) => {
