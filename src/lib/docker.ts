@@ -31,7 +31,7 @@ function buildImage(p, id, logStream, files) {
   })
 }
 
-function runContainer(id, send, writeStream, ws): Promise<boolean> {
+function runContainer(id, send, writeStream): Promise<boolean> {
   return new Promise(async (resolve, reject) => {
     send({
       type: 'debug',
@@ -85,7 +85,6 @@ function runContainer(id, send, writeStream, ws): Promise<boolean> {
             // Listen for kill signal
             writeStream.onKill = () => {
               isRunning = false
-              resolve(true)
 
               container.remove(() => {
                 send({
@@ -93,6 +92,8 @@ function runContainer(id, send, writeStream, ws): Promise<boolean> {
                   payload: `[system] Container ${container.id} removed.`,
                   channel: 'runtime',
                 })
+
+                resolve(true)
               })
             }
 
@@ -117,8 +118,6 @@ function runContainer(id, send, writeStream, ws): Promise<boolean> {
                     payload: `RuntimeError: Script took to long to complete.`,
                   })
 
-                  resolve(false)
-
                   container.kill(() => {
                     send({
                       type: 'debug',
@@ -133,7 +132,7 @@ function runContainer(id, send, writeStream, ws): Promise<boolean> {
                         channel: 'runtime',
                       })
 
-                      ws.close()
+                      resolve(false)
                     })
                   })
                 }

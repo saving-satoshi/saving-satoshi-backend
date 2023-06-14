@@ -156,7 +156,7 @@ export async function run(id: string, language: string, ws: any) {
   })
 
   try {
-    const success = await Docker.runContainer(id, send, runStream, ws)
+    const success = await Docker.runContainer(id, send, runStream)
   } catch (ex) {
     console.log(ex)
     send({
@@ -171,6 +171,8 @@ export async function run(id: string, language: string, ws: any) {
     payload: '[system] Cleaning up...',
     channel: 'runtime',
   })
+
+  ws.terminate()
 
   await fs.rm(rpath, { recursive: true })
 }
