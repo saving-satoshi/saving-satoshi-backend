@@ -31,6 +31,10 @@ function buildImage(p, id, logStream, files) {
   })
 }
 
+function sanitizeContainerId(id) {
+  return id.slice(0, 8)
+}
+
 function runContainer(id, send, writeStream): Promise<boolean> {
   return new Promise(async (resolve, reject) => {
     send({
@@ -46,9 +50,11 @@ function runContainer(id, send, writeStream): Promise<boolean> {
           return reject(err)
         }
 
+        const containerId = sanitizeContainerId(container.id)
+
         send({
           type: 'debug',
-          payload: `[system] Container ${container.id} created.`,
+          payload: `[system] Container ${containerId} created.`,
           channel: 'runtime',
         })
 
@@ -76,7 +82,7 @@ function runContainer(id, send, writeStream): Promise<boolean> {
 
             send({
               type: 'debug',
-              payload: `[system] Starting container ${container.id}...`,
+              payload: `[system] Starting container ${containerId}...`,
               channel: 'runtime',
             })
 
@@ -86,16 +92,43 @@ function runContainer(id, send, writeStream): Promise<boolean> {
             writeStream.onKill = () => {
               isRunning = false
 
+              stream.unpipe(writeStream)
+              writeStream.end()
+
               container.remove(() => {
                 send({
                   type: 'debug',
-                  payload: `[system] Container ${container.id} removed.`,
+                  payload: `[system] Container ${containerId} removed.`,
                   channel: 'runtime',
                 })
 
                 resolve(true)
               })
             }
+
+            setTimeout(() => {
+              if (isRunning) {
+                container.kill(() => {
+                  send({
+                    type: 'debug',
+                    payload: `[system] Container ${containerId} killed.`,
+                    channel: 'runtime',
+                  })
+
+                  container.remove(() => {
+                    send({
+                      type: 'debug',
+                      payload: `[system] Container ${containerId} removed.`,
+                      channel: 'runtime',
+                    })
+
+                    stream.unpipe(writeStream)
+                    writeStream.end()
+                    resolve(false)
+                  })
+                })
+              }
+            }, MAX_SCRIPT_EXECUTION_TIME)
 
             // Start the container
             container.start((err) => {
@@ -107,36 +140,9 @@ function runContainer(id, send, writeStream): Promise<boolean> {
 
               send({
                 type: 'debug',
-                payload: `[system] Container ${container.id} started.`,
+                payload: `[system] Container ${containerId} started.`,
                 channel: 'runtime',
               })
-
-              setTimeout(() => {
-                if (isRunning) {
-                  send({
-                    type: 'error',
-                    payload: `RuntimeError: Script took to long to complete.`,
-                  })
-
-                  container.kill(() => {
-                    send({
-                      type: 'debug',
-                      payload: `[system] Container ${container.id} killed.`,
-                      channel: 'runtime',
-                    })
-
-                    container.remove(() => {
-                      send({
-                        type: 'debug',
-                        payload: `[system] Container ${container.id} removed.`,
-                        channel: 'runtime',
-                      })
-
-                      resolve(false)
-                    })
-                  })
-                }
-              }, MAX_SCRIPT_EXECUTION_TIME)
             })
           }
         )

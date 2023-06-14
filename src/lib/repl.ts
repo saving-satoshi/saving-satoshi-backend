@@ -157,22 +157,49 @@ export async function run(id: string, language: string, ws: any) {
 
   try {
     const success = await Docker.runContainer(id, send, runStream)
+
+    await sleep(1000)
+
+    if (!success) {
+      send({
+        type: 'error',
+        payload: `RuntimeError: Script took to long to complete.`,
+      })
+    }
+
+    send({
+      type: 'end',
+      payload: success,
+      channel: 'runtime',
+    })
+
+    ws.close()
   } catch (ex) {
     console.log(ex)
+
     send({
       type: 'output',
       payload: `[system] Error running container: ${ex.message}`,
       channel: 'runtime',
     })
+
+    send({
+      type: 'end',
+      payload: ex.message,
+      channel: 'runtime',
+    })
+
+    ws.close()
+  } finally {
+    await fs.rm(rpath, { recursive: true })
   }
+}
 
-  send({
-    type: 'debug',
-    payload: '[system] Cleaning up...',
-    channel: 'runtime',
+function sleep(delay = 1000): Promise<void> {
+  return new Promise((resolve) => {
+    let timeout = setTimeout(() => {
+      resolve()
+      clearTimeout(timeout)
+    }, delay)
   })
-
-  ws.terminate()
-
-  await fs.rm(rpath, { recursive: true })
 }

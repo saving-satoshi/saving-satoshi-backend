@@ -22,6 +22,7 @@ class Stream extends Writable {
     lines.forEach((line) => {
       line = this.transformer(line)
       if (line) {
+        line = line.replace(/\r$/, '')
         this.send({
           type: this.channel,
           payload: line,
