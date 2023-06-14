@@ -31,7 +31,7 @@ function buildImage(p, id, logStream, files) {
   })
 }
 
-function runContainer(id, send, writeStream): Promise<boolean> {
+function runContainer(id, send, writeStream, ws): Promise<boolean> {
   return new Promise(async (resolve, reject) => {
     send({
       type: 'debug',
@@ -132,6 +132,8 @@ function runContainer(id, send, writeStream): Promise<boolean> {
                         payload: `[system] Container ${container.id} removed.`,
                         channel: 'runtime',
                       })
+
+                      ws.close()
                     })
                   })
                 }

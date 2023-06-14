@@ -1,8 +1,9 @@
 import { Writable } from 'stream'
-import Convert from 'ansi-to-html'
-const convert = new Convert()
+import _ from 'lodash'
+
 class Stream extends Writable {
   send: any
+  sendLinesThrottled: any
   language: string
   transformer: any
   channel: string
@@ -11,6 +12,7 @@ class Stream extends Writable {
   constructor(send: any, language: string, transformer: any, channel: string) {
     super()
     this.send = send
+    this.sendLinesThrottled = _.throttle(this.sendLines, 100)
     this.language = language
     this.transformer = transformer
     this.channel = channel
@@ -69,7 +71,7 @@ class Stream extends Writable {
       }
 
       const lines = chunk.toString().trim().split('\n')
-      this.sendLines(lines.filter((line) => line !== 'KILL'))
+      this.sendLinesThrottled(lines.filter((line) => line !== 'KILL'))
 
       return this.onKill()
     }
@@ -80,7 +82,7 @@ class Stream extends Writable {
     }
 
     const lines = chunk.toString().trim().split('\n')
-    this.sendLines(lines)
+    this.sendLinesThrottled(lines)
 
     callback()
   }
