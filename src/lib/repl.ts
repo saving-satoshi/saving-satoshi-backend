@@ -90,9 +90,12 @@ export async function run(id: string, language: string, ws: any) {
           if (regex.test(val)) {
             hasCompilationError = true
 
-            val
-              .split('\n')
-              .forEach((l) => runStream.send({ type: 'error', payload: l }))
+            val.split('\n').forEach((l) =>
+              runStream.send({
+                type: 'error',
+                payload: { type: 'LanguageError', message: l },
+              })
+            )
 
             return null
           }
@@ -102,7 +105,10 @@ export async function run(id: string, language: string, ws: any) {
           const regex = /error(.*?):/gim
           if (regex.test(val)) {
             hasCompilationError = true
-            runStream.send({ type: 'error', payload: val })
+            runStream.send({
+              type: 'error',
+              payload: { type: 'LanguageError', message: val },
+            })
             return null
           }
           break
@@ -111,7 +117,10 @@ export async function run(id: string, language: string, ws: any) {
           const regex = /error(.*?):/gim
           if (regex.test(val)) {
             hasCompilationError = true
-            runStream.send({ type: 'error', payload: val })
+            runStream.send({
+              type: 'error',
+              payload: { type: 'LanguageError', message: val },
+            })
             return null
           }
           break
@@ -127,6 +136,11 @@ export async function run(id: string, language: string, ws: any) {
     send({
       type: 'debug',
       payload: '[system] Building Docker image...',
+      channel: 'build',
+    })
+    send({
+      type: 'status',
+      payload: 'building',
       channel: 'build',
     })
     await Docker.buildImage(rpath, id, buildStream, sourceFiles[language])
@@ -155,13 +169,21 @@ export async function run(id: string, language: string, ws: any) {
   })
 
   try {
+    send({
+      type: 'status',
+      payload: 'running',
+      channel: 'build',
+    })
     const success = await Docker.runContainer(id, send, runStream)
     await sleep(1000)
 
     if (!success) {
       send({
         type: 'error',
-        payload: `RuntimeError: Script took to long to complete.`,
+        payload: {
+          type: 'TimeoutError',
+          message: `RuntimeError: Script took to long to complete.`,
+        },
       })
     }
 

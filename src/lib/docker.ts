@@ -90,20 +90,21 @@ function runContainer(id, send, writeStream): Promise<boolean> {
 
             // Listen for kill signal
             writeStream.onKill = () => {
-              isRunning = false
+              setTimeout(() => {
+                isRunning = false
+                stream.unpipe(writeStream)
+                writeStream.end()
 
-              stream.unpipe(writeStream)
-              writeStream.end()
+                container.remove(() => {
+                  send({
+                    type: 'debug',
+                    payload: `[system] Container ${containerId} removed.`,
+                    channel: 'runtime',
+                  })
 
-              container.remove(() => {
-                send({
-                  type: 'debug',
-                  payload: `[system] Container ${containerId} removed.`,
-                  channel: 'runtime',
+                  resolve(true)
                 })
-
-                resolve(true)
-              })
+              }, 1000)
             }
 
             setTimeout(() => {
