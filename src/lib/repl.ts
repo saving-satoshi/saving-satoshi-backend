@@ -56,7 +56,7 @@ export async function prepare(code: string, language: string) {
 
 export async function run(id: string, language: string, ws: any) {
   const rpath = path.join(LANG_PATH, language, id)
-
+  console.log('running', rpath)
   let hasCompilationError = false
 
   const sourceFiles = {
@@ -131,7 +131,6 @@ export async function run(id: string, language: string, ws: any) {
     })
     await Docker.buildImage(rpath, id, buildStream, sourceFiles[language])
   } catch (ex) {
-    console.log(ex)
     send({
       type: 'debug',
       payload: `[system] Error building Docker image: ${ex.message}`,
@@ -157,7 +156,6 @@ export async function run(id: string, language: string, ws: any) {
 
   try {
     const success = await Docker.runContainer(id, send, runStream)
-
     await sleep(1000)
 
     if (!success) {

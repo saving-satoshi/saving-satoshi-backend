@@ -4,7 +4,7 @@ import Docker from 'dockerode'
 const docker = new Docker()
 
 const MAX_SCRIPT_EXECUTION_TIME =
-  Number(process.env.MAX_SCRIPT_EXECUTION_TIME) || 10000
+  Number(process.env.MAX_SCRIPT_EXECUTION_TIME) || 15000
 
 function buildImage(p, id, logStream, files) {
   return new Promise((resolve, reject) => {
@@ -121,6 +121,7 @@ function runContainer(id, send, writeStream): Promise<boolean> {
                       payload: `[system] Container ${containerId} removed.`,
                       channel: 'runtime',
                     })
+                    console.log('killed')
 
                     stream.unpipe(writeStream)
                     writeStream.end()

@@ -23,8 +23,12 @@ async function run() {
       const { action, payload } = JSON.parse(message)
       switch (action) {
         case 'repl': {
-          const id = await repl.prepare(payload.code, payload.language)
-          await repl.run(id, payload.language, ws)
+          try {
+            const id = await repl.prepare(payload.code, payload.language)
+            await repl.run(id, payload.language, ws)
+          } catch (ex) {
+            console.log(ex)
+          }
           break
         }
       }
