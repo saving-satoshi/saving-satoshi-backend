@@ -67,7 +67,10 @@ class Stream extends Writable {
     if (chunk.toString().indexOf('KILL') !== -1) {
       const error = this.getError(chunk)
       if (error) {
-        this.send({ type: 'error', payload: error })
+        this.send({
+          type: 'error',
+          payload: { type: 'RuntimeError', message: error },
+        })
         return this.onKill()
       }
 
@@ -79,7 +82,10 @@ class Stream extends Writable {
 
     const error = this.getError(chunk)
     if (error) {
-      return this.send({ type: 'error', payload: error })
+      return this.send({
+        type: 'error',
+        payload: { type: 'RuntimeError', message: error },
+      })
     }
 
     const lines = chunk.toString().trim().split('\n')

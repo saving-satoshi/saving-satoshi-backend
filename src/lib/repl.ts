@@ -54,9 +54,8 @@ export async function prepare(code: string, language: string) {
   return id
 }
 
-export async function run(id: string, language: string, ws: any) {
+export async function run(id: string, language: string, context: any) {
   const rpath = path.join(LANG_PATH, language, id)
-
   let hasCompilationError = false
 
   const sourceFiles = {
@@ -68,7 +67,9 @@ export async function run(id: string, language: string, ws: any) {
   }
 
   const send = (payload) => {
-    ws.send(JSON.stringify({ ...payload, payload: payload.payload }))
+    context.socket.send(
+      JSON.stringify({ ...payload, payload: payload.payload })
+    )
   }
 
   const runStream = new Stream(send, language, (r) => r, 'output')
@@ -90,9 +91,12 @@ export async function run(id: string, language: string, ws: any) {
           if (regex.test(val)) {
             hasCompilationError = true
 
-            val
-              .split('\n')
-              .forEach((l) => runStream.send({ type: 'error', payload: l }))
+            val.split('\n').forEach((l) =>
+              runStream.send({
+                type: 'error',
+                payload: { type: 'LanguageError', message: l },
+              })
+            )
 
             return null
           }
@@ -102,7 +106,10 @@ export async function run(id: string, language: string, ws: any) {
           const regex = /error(.*?):/gim
           if (regex.test(val)) {
             hasCompilationError = true
-            runStream.send({ type: 'error', payload: val })
+            runStream.send({
+              type: 'error',
+              payload: { type: 'LanguageError', message: val },
+            })
             return null
           }
           break
@@ -111,7 +118,10 @@ export async function run(id: string, language: string, ws: any) {
           const regex = /error(.*?):/gim
           if (regex.test(val)) {
             hasCompilationError = true
-            runStream.send({ type: 'error', payload: val })
+            runStream.send({
+              type: 'error',
+              payload: { type: 'LanguageError', message: val },
+            })
             return null
           }
           break
@@ -129,9 +139,13 @@ export async function run(id: string, language: string, ws: any) {
       payload: '[system] Building Docker image...',
       channel: 'build',
     })
+    send({
+      type: 'status',
+      payload: 'building',
+      channel: 'build',
+    })
     await Docker.buildImage(rpath, id, buildStream, sourceFiles[language])
   } catch (ex) {
-    console.log(ex)
     send({
       type: 'debug',
       payload: `[system] Error building Docker image: ${ex.message}`,
@@ -156,14 +170,21 @@ export async function run(id: string, language: string, ws: any) {
   })
 
   try {
-    const success = await Docker.runContainer(id, send, runStream)
-
+    send({
+      type: 'status',
+      payload: 'running',
+      channel: 'build',
+    })
+    const success = await Docker.runContainer(id, send, runStream, context)
     await sleep(1000)
 
     if (!success) {
       send({
         type: 'error',
-        payload: `RuntimeError: Script took to long to complete.`,
+        payload: {
+          type: 'TimeoutError',
+          message: `RuntimeError: Script took to long to complete.`,
+        },
       })
     }
 
@@ -173,7 +194,7 @@ export async function run(id: string, language: string, ws: any) {
       channel: 'runtime',
     })
 
-    ws.close()
+    context.socket.close()
   } catch (ex) {
     console.log(ex)
 
@@ -189,7 +210,7 @@ export async function run(id: string, language: string, ws: any) {
       channel: 'runtime',
     })
 
-    ws.close()
+    context.socket.close()
   } finally {
     await fs.rm(rpath, { recursive: true })
   }
