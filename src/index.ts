@@ -13,19 +13,38 @@ import { v1 } from './routes'
 
 const port = process.env.PORT
 
+const JOBS = {}
+
+function getSocketId(socket) {
+  return `${socket.remoteAddress}:${socket.remotePort}`
+}
+
 async function run() {
   const app = express()
   const server = http.createServer(app)
   const wss = new WebSocket.Server({ server })
 
-  wss.on('connection', (ws: WebSocket) => {
+  wss.on('connection', (ws: WebSocket, request: any) => {
+    const socketId = getSocketId(request.socket)
+
+    ws.on('close', () => {
+      const job = JOBS[socketId]
+      job.onKill()
+      delete JOBS[socketId]
+    })
+
     ws.on('message', async (message: string) => {
       const { action, payload } = JSON.parse(message)
       switch (action) {
         case 'repl': {
           try {
             const id = await repl.prepare(payload.code, payload.language)
-            await repl.run(id, payload.language, ws)
+            JOBS[socketId] = { id, container: undefined, onKill: () => {} }
+            await repl.run(id, payload.language, {
+              socket: ws,
+              jobs: JOBS,
+              socketId,
+            })
           } catch (ex) {
             console.log(ex)
           }

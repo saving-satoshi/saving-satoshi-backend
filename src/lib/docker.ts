@@ -35,7 +35,7 @@ function sanitizeContainerId(id) {
   return id.slice(0, 8)
 }
 
-function runContainer(id, send, writeStream): Promise<boolean> {
+function runContainer(id, send, writeStream, context): Promise<boolean> {
   return new Promise(async (resolve, reject) => {
     send({
       type: 'debug',
@@ -48,6 +48,21 @@ function runContainer(id, send, writeStream): Promise<boolean> {
       (err, container) => {
         if (err) {
           return reject(err)
+        }
+
+        let isRunning = false
+
+        const job = context.jobs[context.socketId]
+        job.container = container
+        job.onKill = () => {
+          isRunning = false
+
+          container.kill(() => {
+            container.remove(() => {
+              writeStream.end()
+              resolve(true)
+            })
+          })
         }
 
         const containerId = sanitizeContainerId(container.id)
@@ -86,8 +101,6 @@ function runContainer(id, send, writeStream): Promise<boolean> {
               channel: 'runtime',
             })
 
-            let isRunning = false
-
             // Listen for kill signal
             writeStream.onKill = () => {
               setTimeout(() => {
@@ -122,7 +135,6 @@ function runContainer(id, send, writeStream): Promise<boolean> {
                       payload: `[system] Container ${containerId} removed.`,
                       channel: 'runtime',
                     })
-                    console.log('killed')
 
                     stream.unpipe(writeStream)
                     writeStream.end()

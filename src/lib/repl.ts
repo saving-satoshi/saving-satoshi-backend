@@ -54,9 +54,8 @@ export async function prepare(code: string, language: string) {
   return id
 }
 
-export async function run(id: string, language: string, ws: any) {
+export async function run(id: string, language: string, context: any) {
   const rpath = path.join(LANG_PATH, language, id)
-  console.log('running', rpath)
   let hasCompilationError = false
 
   const sourceFiles = {
@@ -68,7 +67,9 @@ export async function run(id: string, language: string, ws: any) {
   }
 
   const send = (payload) => {
-    ws.send(JSON.stringify({ ...payload, payload: payload.payload }))
+    context.socket.send(
+      JSON.stringify({ ...payload, payload: payload.payload })
+    )
   }
 
   const runStream = new Stream(send, language, (r) => r, 'output')
@@ -174,7 +175,7 @@ export async function run(id: string, language: string, ws: any) {
       payload: 'running',
       channel: 'build',
     })
-    const success = await Docker.runContainer(id, send, runStream)
+    const success = await Docker.runContainer(id, send, runStream, context)
     await sleep(1000)
 
     if (!success) {
@@ -193,7 +194,7 @@ export async function run(id: string, language: string, ws: any) {
       channel: 'runtime',
     })
 
-    ws.close()
+    context.socket.close()
   } catch (ex) {
     console.log(ex)
 
@@ -209,7 +210,7 @@ export async function run(id: string, language: string, ws: any) {
       channel: 'runtime',
     })
 
-    ws.close()
+    context.socket.close()
   } finally {
     await fs.rm(rpath, { recursive: true })
   }
