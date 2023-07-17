@@ -7,6 +7,8 @@ class Stream extends Writable {
   language: string
   transformer: any
   channel: string
+  errorBuffer: any[]
+  hasError: boolean
   onKill: () => void
 
   constructor(send: any, language: string, transformer: any, channel: string) {
@@ -16,6 +18,8 @@ class Stream extends Writable {
     this.language = language
     this.transformer = transformer
     this.channel = channel
+    this.errorBuffer = []
+    this.hasError = false
   }
 
   sendLines(lines) {
@@ -34,21 +38,28 @@ class Stream extends Writable {
   getError(chunk) {
     let result = undefined
 
-    switch (this.language) {
-      case 'python': {
-        if (
-          chunk.toString().indexOf('Error') !== -1 ||
-          chunk.toString().indexOf('Traceback') !== -1
-        ) {
-          result = chunk.toString()
+    if (this.hasError) {
+      result = chunk.toString()
+    } else {
+      switch (this.language) {
+        case 'python': {
+          if (
+            chunk.toString().indexOf('Error') !== -1 ||
+            chunk.toString().indexOf('Traceback') !== -1
+          ) {
+            result = chunk.toString()
+          }
+          break
         }
-        break
-      }
-      case 'javascript': {
-        if (chunk.toString().indexOf('Error') !== -1) {
-          result = chunk.toString()
+        case 'javascript': {
+          if (
+            chunk.toString().indexOf('Error') !== -1 ||
+            chunk.toString().indexOf('node:internal') !== -1
+          ) {
+            result = chunk.toString()
+          }
+          break
         }
-        break
       }
     }
 
@@ -81,16 +92,25 @@ class Stream extends Writable {
     }
 
     const error = this.getError(chunk)
-    if (error) {
-      return this.send({
-        type: 'error',
-        payload: { type: 'RuntimeError', message: error },
-      })
+    if (error || this.hasError) {
+      this.hasError = true
+      this.errorBuffer.push(error)
+      return callback()
     }
 
     const lines = chunk.toString().trim().split('\n')
     this.sendLinesThrottled(lines)
+    callback()
+  }
 
+  _final(callback) {
+    if (this.errorBuffer.length > 0) {
+      this.send({
+        type: 'error',
+        payload: { type: 'RuntimeError', message: this.errorBuffer.join('\n') },
+      })
+      return callback()
+    }
     callback()
   }
 }
