@@ -37,7 +37,7 @@ class Stream extends Writable {
     switch (this.language) {
       case 'python': {
         if (
-          chunk.toString().indexOf('Error:') !== -1 ||
+          chunk.toString().indexOf('Error') !== -1 ||
           chunk.toString().indexOf('Traceback') !== -1
         ) {
           result = chunk.toString()
@@ -45,7 +45,7 @@ class Stream extends Writable {
         break
       }
       case 'javascript': {
-        if (chunk.toString().indexOf('Error:') !== -1) {
+        if (chunk.toString().indexOf('Error') !== -1) {
           result = chunk.toString()
         }
         break
