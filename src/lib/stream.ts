@@ -107,7 +107,7 @@ class Stream extends Writable {
     if (this.errorBuffer.length > 0) {
       this.send({
         type: 'error',
-        payload: { type: 'RuntimeError', message: this.errorBuffer.join('\n') },
+        payload: { type: 'RuntimeError', message: this.errorBuffer.join() },
       })
       return callback()
     }
