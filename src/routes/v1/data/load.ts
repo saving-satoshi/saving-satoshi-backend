@@ -1,13 +1,12 @@
 import { Router } from 'express'
 import { Data } from 'models'
 import { authenticated } from 'middleware'
-import { RequestWithToken } from 'types'
 
 const router = Router()
 
-router.get('/:lesson_id', authenticated, async (req: RequestWithToken, res) => {
+router.get('/:lesson_id', authenticated, async (req, res) => {
   try {
-      const entry = await Data.find(req.params.lesson_id)
+      const entry = await Data.find(req.params)
 
       res.status(200).json({
         lesson_id: entry.lesson_id,

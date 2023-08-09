@@ -1,11 +1,10 @@
 import { Router } from 'express'
 import { Data } from 'models'
 import { authenticated } from 'middleware'
-import { RequestWithToken } from 'types'
 
 const router = Router()
 
-router.put('/', authenticated, async (req: RequestWithToken, res) => {
+router.put('/', authenticated, async (req, res) => {
   try {
     const { lesson_id, value } = req.body;
 
