@@ -4,7 +4,6 @@ import 'module-alias/register'
 import express from 'express'
 import bodyParser from 'body-parser'
 import cookieParser from 'cookie-parser'
-import { cors } from 'middleware'
 import * as http from 'http'
 import * as WebSocket from 'ws'
 import * as repl from 'lib/repl'
@@ -14,6 +13,11 @@ import { v1 } from './routes'
 const port = process.env.PORT
 
 const JOBS = {}
+const ALLOWED_ORIGINS = [
+  'https://savingsatoshi.com',
+  'https://dev.savingsatoshi.com',
+  'https://vercel.com',
+]
 
 function getSocketId(socket) {
   return `${socket.remoteAddress}:${socket.remotePort}`
@@ -53,8 +57,22 @@ async function run() {
       }
     })
   })
+  app.use((req, res, next) => {
+    const origin = req.headers.origin
 
-  app.use(cors)
+    if (process.env.ENV === 'development' || ALLOWED_ORIGINS.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin)
+    }
+
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE')
+    res.header(
+      'Access-Control-Allow-Headers',
+      'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+    )
+
+    next()
+  })
+
   app.use(bodyParser.json())
   app.use(cookieParser())
 
