@@ -58,7 +58,7 @@ async function run() {
     })
   })
   app.use((req, res, next) => {
-    const origin = req.headers.origin
+    const origin = req.headers.origin || process.env.WHITELIST
 
     if (process.env.ENV === 'development' || ALLOWED_ORIGINS.includes(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin)
