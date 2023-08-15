@@ -1,3 +1,4 @@
-export { default as Account } from './account'
-export { default as Progress } from './progress'
-export { default as Data } from './data'
+export { default as Account } from './Account'
+export { default as Progress } from './Progress'
+export { default as Data } from './Data'
+export { default as Feature } from './Feature'

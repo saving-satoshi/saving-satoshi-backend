@@ -12,6 +12,21 @@ abstract class Model {
     return this.schema.validate(data, options)
   }
 
+  async all(): Promise<any[]> {
+    const client = await db.getClient()
+    try {
+      await db.begin(client)
+      const result = await db.query(client, `SELECT * FROM ${this.table}`, [])
+      await db.commit(client)
+      return result.rows
+    } catch (ex) {
+      await db.rollback(client)
+      throw ex
+    } finally {
+      db.release(client)
+    }
+  }
+
   async exists(column: string, id: string | number): Promise<boolean> {
     const client = await db.getClient()
 
