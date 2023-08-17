@@ -17,6 +17,7 @@ const ALLOWED_ORIGINS = [
   'https://savingsatoshi.com',
   'https://dev.savingsatoshi.com',
   'https://vercel.com',
+  process.env.WHITELIST
 ]
 
 function getSocketId(socket) {
@@ -58,7 +59,7 @@ async function run() {
     })
   })
   app.use((req, res, next) => {
-    const origin = req.headers.origin || process.env.WHITELIST
+    const origin = req.headers.origin
 
     if (process.env.ENV === 'development' || ALLOWED_ORIGINS.includes(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin)
