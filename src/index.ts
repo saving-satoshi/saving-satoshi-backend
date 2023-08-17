@@ -22,8 +22,6 @@ const ALLOWED_ORIGINS = [
   ...WHITELIST,
 ]
 
-console.log(ALLOWED_ORIGINS)
-
 function getSocketId(socket) {
   return `${socket.remoteAddress}:${socket.remotePort}`
 }
