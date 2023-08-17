@@ -13,12 +13,16 @@ import { v1 } from './routes'
 const port = process.env.PORT
 
 const JOBS = {}
+const WHITELIST = process.env.WHITELIST.split(',').map((a) => a.trim())
+
 const ALLOWED_ORIGINS = [
   'https://savingsatoshi.com',
   'https://dev.savingsatoshi.com',
   'https://vercel.com',
-  process.env.WHITELIST
+  ...WHITELIST,
 ]
+
+console.log(ALLOWED_ORIGINS)
 
 function getSocketId(socket) {
   return `${socket.remoteAddress}:${socket.remotePort}`
@@ -58,10 +62,13 @@ async function run() {
       }
     })
   })
+
   app.use((req, res, next) => {
     const origin = req.headers.origin
 
-    if (process.env.ENV === 'development' || ALLOWED_ORIGINS.includes(origin)) {
+    if (process.env.ENV === 'development') {
+      res.setHeader('Access-Control-Allow-Origin', '*')
+    } else if (ALLOWED_ORIGINS.includes(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin)
     }
 
