@@ -43,7 +43,7 @@ async function run() {
         case 'repl': {
           try {
             const id = await repl.prepare(payload.code, payload.language)
-            JOBS[socketId] = { id, container: undefined, onKill: () => {} }
+            JOBS[socketId] = { id, container: undefined, onKill: () => { } }
             await repl.run(id, payload.language, {
               socket: ws,
               jobs: JOBS,
