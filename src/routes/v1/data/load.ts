@@ -7,12 +7,10 @@ const router = Router()
 
 router.get('/:lesson_id', authenticated, async (req: RequestWithToken, res) => {
   try {
-      const entry = await Data.find({ account: req.account.id })
-
+      const entry = await Data.find({ lesson_id: req.params.lesson_id })
       res.status(200).json({
-        account_id: entry.account_id,
-        lesson_id: entry.lesson_id,
-        data: entry.data
+          lesson_id: entry.lesson_id,
+          data: entry.data
       })
   } catch (err) {
     res.status(500).json({

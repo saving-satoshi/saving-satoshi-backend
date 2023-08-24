@@ -72,6 +72,17 @@ export const createValues = (values) => {
         return 'NULL'
       } else if (!isNaN(Number(val))) {
         return val
+      } else if (typeof val === "string") {
+        try {
+          // Attempt to parse the string as JSON
+          JSON.parse(val);
+          return `'${val}'`;
+        } catch (error) {
+          // Parsing failed, handle it here
+          const str = val as string;
+          const escapedVal = str.replace(/'/g, "''");
+          return `'${escapedVal}'`;
+        }
       } else {
         const str = val as string
         const escapedVal = str.replace(/'/g, "''")
