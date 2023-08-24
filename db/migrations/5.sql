@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE TABLE accounts_data (
   id serial PRIMARY KEY,
-  lesson_id text NOT NULL UNIQUE,
+  lesson_id text NOT NULL,
   account_id int,
   data JSON NOT NULL DEFAULT '{}',
   FOREIGN KEY (account_id) REFERENCES accounts(id)
