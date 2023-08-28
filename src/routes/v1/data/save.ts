@@ -17,7 +17,7 @@ router.put('/', authenticated, async (req: RequestWithToken, res) => {
     } else {
       const data = await Data.create(
         { account_id: req.account.id, lesson_id: req.body.lesson_id, data: req.body.data},
-        { uniqueOn: 'id' }
+        { uniqueOn: 'account_id' }
       )
 
       res.status(200).json(data)
