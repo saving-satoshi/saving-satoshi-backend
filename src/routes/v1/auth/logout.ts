@@ -1,15 +1,14 @@
-import { Router } from 'express'
-import { authenticated } from 'middleware'
-import { RequestWithToken } from 'types'
+import { Router } from 'express';
+import { RequestWithToken } from 'types';
+import { authenticated } from 'middleware';
 
-const router = Router()
+const router = Router();
 
 router.post('/', authenticated, async (req: RequestWithToken, res) => {
   if (!req.account) {
-    return res.status(403).json({ errors: [{ message: 'Forbidden.' }] })
+    return res.status(403).json({ errors: [{ message: 'Forbidden.' }] });
   }
 
-  res.status(200).json({})
-})
+});
 
-export default router
+export default router;
