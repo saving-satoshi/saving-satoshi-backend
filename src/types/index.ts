@@ -10,3 +10,4 @@ export interface RequestWithToken extends Request {
   token: string
   account?: Account
 }
+

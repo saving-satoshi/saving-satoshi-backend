@@ -1,33 +1,36 @@
-import { Router } from 'express'
-import { Account, Progress } from 'models'
-import { formatValidationErrors } from 'lib/utils'
+import { Router } from 'express';
+import { PrismaClient } from '@prisma/client';
 
-const router = Router()
+const router = Router();
+const prisma = new PrismaClient();
 
 router.post('/', async (req, res) => {
-  const { error } = Account.validate(req.body, {
-    abortEarly: false,
-  })
-
-  if (error) {
-    return res.status(400).json({
-      errors: formatValidationErrors(error),
-    })
-  }
-
   try {
-    if (await Account.exists('private_key', req.body.private_key)) {
-      throw new Error('Account already exists.')
+    // Validate the request body here if needed
+
+    // Check if an account with the given private_key already exists
+    const existingAccount = await prisma.accounts.findFirst({
+      where: { private_key: req.body.private_key },
+    });
+
+    if (existingAccount) {
+      throw new Error('Account already exists.');
     }
 
-    const account = await Account.create(req.body, { uniqueOn: 'private_key' })
+    // Create a new account
+    const newAccount = await prisma.accounts.create({
+      data: req.body,
+    });
 
-    const progress = await Progress.create(
-      { account: account.id, progress: 'CH1INT1' },
-      { uniqueOn: 'account' }
-    )
+    // Create a progress record for the new account
+    const newProgress = await prisma.accounts_progress.create({
+      data: {
+        accounts: { connect: { id: newAccount.id } },
+        progress: 'CH1INT1',
+      },
+    });
 
-    res.status(200).json({ id: account.id })
+    res.status(200).json({ id: newAccount.id });
   } catch (err) {
     res.status(500).json({
       errors: [
@@ -35,8 +38,10 @@ router.post('/', async (req, res) => {
           message: err.message,
         },
       ],
-    })
+    });
+  } finally {
+    await prisma.$disconnect(); // Disconnect from the database
   }
-})
+});
 
-export default router
+export default router;
