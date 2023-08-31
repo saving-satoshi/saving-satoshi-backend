@@ -54,7 +54,7 @@
     "eslint-config-prettier": "^8.6.0",
     "eslint-plugin-import": "^2.27.5",
     "prettier": "2.8.4",
-    "prisma": "^5.2.0",
+    "prisma": "5.2.0",
     "rimraf": "^5.0.1",
     "ts-node": "^10.9.1",
     "tsc-watch": "^6.0.0",
