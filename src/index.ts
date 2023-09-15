@@ -46,7 +46,7 @@ async function run() {
         case 'repl': {
           try {
             const id = await repl.prepare(payload.code, payload.language)
-            JOBS[socketId] = { id, container: undefined, onKill: () => { } }
+            JOBS[socketId] = { id, container: undefined, onKill: () => {} }
             await repl.run(id, payload.language, {
               socket: ws,
               jobs: JOBS,
@@ -64,7 +64,7 @@ async function run() {
   app.use((req, res, next) => {
     const origin = req.headers.origin
 
-    if (process.env.ENV === 'development') {
+    if (process.env.ENV === 'development' || !origin) {
       res.setHeader('Access-Control-Allow-Origin', '*')
     } else if (ALLOWED_ORIGINS.includes(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin)
