@@ -14,8 +14,8 @@
     "copy-files": "copyfiles -u 1 src/languages/**/* dist/",
     "prettier": "prettier --write --ignore-unknown .",
     "prettier:check": "prettier --check --ignore-unknown .",
-    "db:init": "node db/scripts/init.js",
-    "db:migrate": "node db/scripts/migrate.js"
+    "db:generate": "npx prisma generate",
+    "db:migrate": "npx prisma migrate dev --name update"
   },
   "_moduleAliases": {
     "lib": "dist/lib",
