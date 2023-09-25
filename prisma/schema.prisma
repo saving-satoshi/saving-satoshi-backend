@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model accounts {
+  id                Int                @id @default(autoincrement())
+  private_key       String             @unique
+  avatar            String?
+  accounts_progress accounts_progress?
+
+  @@index([private_key], map: "idx_accounts_private_key")
+}
+
+model accounts_progress {
+  id       Int       @id @default(autoincrement())
+  account  Int?      @unique(map: "unique_account")
+  progress String    @db.VarChar(8)
+  accounts accounts? @relation(fields: [account], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "accounts_progress_account_id_fkey")
+
+  @@index([account], map: "idx_accounts_progress_account_id")
+}
+
+model features {
+  id            Int    @id @default(autoincrement())
+  feature_name  String @unique
+  feature_value Int    @default(0) @db.SmallInt
+}
+
+model migrations {
+  id      Int @id @default(autoincrement())
+  version Int
+}
