@@ -1,43 +1,41 @@
-import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
-import Joi from 'joi';
+import Joi from 'joi'
+import { Router } from 'express'
+import { PrismaClient } from '@prisma/client'
 import { authenticated } from 'middleware'
-import { RequestWithToken } from 'types'
 import { formatValidationErrors } from 'lib/utils'
 
-const router = Router();
-const prisma = new PrismaClient();
+const router = Router()
+const prisma = new PrismaClient()
 
 const schema = Joi.object({
   accountId: Joi.number().required(),
-});
-
+})
 
 router.get('/:accountId', authenticated, async (req, res) => {
   try {
-    const { error } = schema.validate(req.params, { abortEarly: false });
+    const { error } = schema.validate(req.params, { abortEarly: false })
 
     if (error) {
       return res.status(400).json({
         errors: formatValidationErrors(error),
-      });
+      })
     }
 
-    const { accountId } = req.params;
+    const { accountId } = req.params
 
     // Use Prisma to fetch the account by ID
     const account = await prisma.accounts.findUnique({
       where: { id: parseInt(accountId) },
-    });
+    })
 
     if (!account) {
-      throw new Error('Account not found.');
+      throw new Error('Account not found.')
     }
 
     // Remove sensitive data before sending the response
-    const { private_key, ...accountData } = account;
+    const { private_key, ...accountData } = account
 
-    res.status(200).json(accountData);
+    res.status(200).json(accountData)
   } catch (err) {
     res.status(500).json({
       errors: [
@@ -45,11 +43,10 @@ router.get('/:accountId', authenticated, async (req, res) => {
           message: err.message,
         },
       ],
-    });
+    })
   } finally {
-    await prisma.$disconnect(); // Disconnect from the database
+    await prisma.$disconnect()
   }
-});
+})
 
-export default router;
-
+export default router

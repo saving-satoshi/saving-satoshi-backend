@@ -27,6 +27,8 @@ router.get('/:lesson_id', authenticated, async (req: RequestWithToken, res) => {
         },
       ],
     })
+  } finally {
+    await prisma.$disconnect()
   }
 })
 
@@ -41,9 +43,11 @@ router.put('/', authenticated, async (req: RequestWithToken, res) => {
     })
 
     if (!exists) {
-      return res.status(400).json({
-        errors: [{ message: 'Data does not exist, please use create.' }],
+      const result = await prisma.accounts_data.create({
+        data: { account: accountId, lesson_id: lessonId, data: data },
       })
+
+      return res.status(200).json(result)
     }
 
     const result = await prisma.accounts_data.update({
@@ -62,37 +66,8 @@ router.put('/', authenticated, async (req: RequestWithToken, res) => {
         },
       ],
     })
-  }
-})
-
-router.post('/', authenticated, async (req: RequestWithToken, res) => {
-  try {
-    const accountId = req.account.id
-    const lessonId: string = req.body.lesson_id
-    const data = req.body.data
-
-    const exists = await prisma.accounts_data.count({
-      where: { account: accountId, lesson_id: lessonId },
-    })
-
-    if (exists) {
-      return res.status(400).json({
-        errors: [{ message: 'Data already exists, please use update.' }],
-      })
-    }
-
-    const result = await prisma.accounts_data.create({
-      data: { account: accountId, lesson_id: lessonId, data: data },
-    })
-    res.status(200).json(result)
-  } catch (err) {
-    res.status(500).json({
-      errors: [
-        {
-          message: err.message,
-        },
-      ],
-    })
+  } finally {
+    await prisma.$disconnect()
   }
 })
 
