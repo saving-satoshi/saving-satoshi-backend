@@ -17,7 +17,9 @@ To run this project locally:
 4. Run `yarn` to install dependencies.
 5. Run `yarn db:init` to initialize the database.
 6. Run `yarn db:migrate` to run all database migrations.
-7. Run `yarn dev` to spin up the development environment.
+7. Run `yarn copy-files` to copy all files from the `src/assets` folder to the `dist` folder. (without this you won't be able to run scripts locally).
+8. Start docker.
+9. Run `yarn dev` to spin up the development environment.
 
 ## Run using Docker
 
