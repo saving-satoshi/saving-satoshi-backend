@@ -35,7 +35,7 @@ function sanitizeContainerId(id) {
   return id.slice(0, 8)
 }
 
-function runContainer(id, send, writeStream, context): Promise<boolean> {
+function runContainer(id, send, writeStream, context, functionCall): Promise<boolean> {
   return new Promise(async (resolve, reject) => {
     send({
       type: 'debug',
@@ -44,7 +44,7 @@ function runContainer(id, send, writeStream, context): Promise<boolean> {
     })
 
     docker.createContainer(
-      { Image: id, name: id, Tty: true },
+      { Image: id, name: id, Tty: true, Cmd: [functionCall] },
       (err, container) => {
         if (err) {
           return reject(err)

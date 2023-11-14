@@ -9,5 +9,3 @@ RUN apt-get update
 RUN pip install --upgrade pip
 
 COPY ./ /usr/app
-
-CMD python main.py

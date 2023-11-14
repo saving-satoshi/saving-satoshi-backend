@@ -54,7 +54,7 @@ export async function prepare(code: string, language: string) {
   return id
 }
 
-export async function run(id: string, language: string, context: any) {
+export async function run(id: string, language: string, context: any, functionCall?: string) {
   const rpath = path.join(LANG_PATH, language, id)
   let hasCompilationError = false
 
@@ -64,6 +64,20 @@ export async function run(id: string, language: string, context: any) {
     rust: ['Dockerfile', 'src/main.rs', 'Cargo.toml'],
     go: ['Dockerfile', 'main.go', 'go.mod'],
     cpp: ['Dockerfile', 'main.cpp'],
+  }
+
+  let runCommands;
+
+  if (functionCall) {
+    runCommands = {
+      python: `python -c "import main; print(main.${functionCall}())"`,
+      javascript: `node -e "const main = require('./index'); console.log(main.${functionCall}())"`,
+    }
+  } else {
+    runCommands = {
+      python: `python main.py`,
+      javascript: `node index.js`,
+    }
   }
 
   const send = (payload) => {
@@ -175,7 +189,7 @@ export async function run(id: string, language: string, context: any) {
       payload: 'running',
       channel: 'build',
     })
-    const success = await Docker.runContainer(id, send, runStream, context)
+    const success = await Docker.runContainer(id, send, runStream, context, runCommands[language])
     await sleep(1000)
 
     if (!success) {

@@ -51,7 +51,7 @@ async function run() {
               socket: ws,
               jobs: JOBS,
               socketId,
-            })
+            }, payload?.functionCall)
           } catch (ex) {
             console.log(ex)
           }

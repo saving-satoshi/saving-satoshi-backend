@@ -5,5 +5,3 @@ COPY ./ /usr/app
 RUN npm install
 
 ENV NODE_ENV=development
-
-CMD node index.js
