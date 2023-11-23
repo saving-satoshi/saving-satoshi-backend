@@ -22,10 +22,10 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-    - run: npm ci --no-package-lock
-    - run: npm run build
+    - run: yarn 
+    - run: yarn build
     - run: |
         touch .env
         echo "${{ secrets.PROD_SECRET_FILE }}" > .env
-    - run: npm db:migrate
-    - run: npm pm2 restart index
+    - run: yarn db:migrate
+    - run: pm2 restart index
