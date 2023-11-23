@@ -27,3 +27,5 @@ jobs:
     - run: |
         touch .env
         echo "${{ secrets.PROD_SECRET_FILE }}" > .env
+    - run: npm db:migrate
+    - run: npm pm2 restart index
