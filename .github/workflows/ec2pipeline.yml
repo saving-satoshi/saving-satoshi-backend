@@ -5,7 +5,7 @@ name: ssb CI/CD
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
 
 jobs:
   build:
@@ -13,19 +13,27 @@ jobs:
     strategy:
       matrix:
         node-version: [18.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    - run: yarn 
-    - run: yarn build
-    - run: |
-        touch .env
-        echo "${{ secrets.PROD_SECRET_FILE }}" > .env
-    - run: yarn db:migrate
-    - run: pm2 restart index
+      - uses: actions/checkout@v3
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+
+      - name: Install Dependencies
+        run: yarn
+
+      - name: Build
+        run: yarn build
+
+      - name: Create .env file
+        run: echo "VAR=${{ secrets.PROD_SECRET_FILE }}" > .env
+
+      - name: Database Migration
+        run: yarn db:migrate
+
+      - name: Restart with PM2
+        run: pm2 restart index
