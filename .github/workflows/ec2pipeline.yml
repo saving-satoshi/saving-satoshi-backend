@@ -30,7 +30,7 @@ jobs:
         run: yarn build
 
       - name: Create .env file
-        run: echo "VAR=${{ secrets.PROD_SECRET_FILE }}" > .env
+        run: echo "${{ secrets.PROD_SECRET_FILE }}" > .env
 
       - name: Database Migration
         run: yarn db:migrate
