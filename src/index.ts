@@ -8,7 +8,6 @@ import * as http from 'http'
 import * as WebSocket from 'ws'
 import * as repl from 'lib/repl'
 
-
 import { v1 } from './routes'
 
 const port = process.env.PORT
@@ -16,12 +15,15 @@ const port = process.env.PORT
 const JOBS = {}
 const WHITELIST = process.env.WHITELIST.split(',').map((a) => a.trim())
 
-const ALLOWED_ORIGINS = [
-  'https://savingsatoshi.com',
-  'https://dev.savingsatoshi.com',
-  'https://vercel.com',
-  ...WHITELIST,
-]
+function isAllowedOrigin(origin: string): boolean {
+  const allowedOrigins = [
+    'https://savingsatoshi.com',
+    'https://dev.savingsatoshi.com',
+    'https://vercel.com',
+    ...WHITELIST,
+  ];
+  return allowedOrigins.includes(origin) || origin.endsWith('vercel.app');
+}
 
 function getSocketId(socket) {
   return `${socket.remoteAddress}:${socket.remotePort}`
@@ -67,7 +69,7 @@ async function run() {
 
     if (process.env.ENV === 'development' || !origin) {
       res.setHeader('Access-Control-Allow-Origin', '*')
-    } else if (ALLOWED_ORIGINS.includes(origin)) {
+    } else if (isAllowedOrigin(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin)
     }
 
