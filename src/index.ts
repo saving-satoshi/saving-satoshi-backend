@@ -3,7 +3,6 @@ import 'module-alias/register'
 import express from 'express'
 import bodyParser from 'body-parser'
 import cookieParser from 'cookie-parser'
-import cors from 'cors',
 import * as http from 'http'
 import * as WebSocket from 'ws'
 import * as repl from 'lib/repl'
