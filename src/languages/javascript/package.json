@@ -3,8 +3,14 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {},
   "keywords": [],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@savingsatoshi/secp256k1js": "^1.0.0",
+    "@savingsatoshi/bech32js": "^1.0.0"
+  }
 }
