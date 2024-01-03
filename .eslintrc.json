@@ -1,4 +1,7 @@
 {
+  "parserOptions": {
+    "ecmaVersion": 2020
+  },
   "ignorePatterns": ["dist", "db"],
   "extends": ["prettier"]
 }
