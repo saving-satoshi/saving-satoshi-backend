@@ -8,7 +8,7 @@ ENV PYTHONUNBUFFERED 1
 RUN apt-get update
 RUN pip install --upgrade pip
 
-RUN pip install savingsatoshi_secp256k1py savingsatoshi_bech32py
+RUN pip install savingsatoshi_secp256k1py savingsatoshi_bech32py ecdsa
 
 COPY ./ /usr/app
 
