@@ -23,6 +23,10 @@ export async function prepare(code: string, language: string) {
     case 'javascript': {
       await fs.writeFile(path.join(rpath, 'index.js'), code, 'utf-8')
       await fs.copyFile(
+        path.join(LANG_PATH, language, 'mempool.json'),
+        path.join(rpath, 'mempool.json')
+      )
+      await fs.copyFile(
         path.join(LANG_PATH, language, 'package.json'),
         path.join(rpath, 'package.json')
       )
@@ -60,7 +64,7 @@ export async function run(id: string, language: string, context: any) {
 
   const sourceFiles = {
     python: ['Dockerfile', 'main.py'],
-    javascript: ['Dockerfile', 'index.js', 'package.json'],
+    javascript: ['Dockerfile', 'index.js', 'mempool.json', 'package.json'],
     rust: ['Dockerfile', 'src/main.rs', 'Cargo.toml'],
     go: ['Dockerfile', 'main.go', 'go.mod'],
     cpp: ['Dockerfile', 'main.cpp'],
