@@ -18,10 +18,19 @@ export async function prepare(code: string, language: string) {
   switch (language) {
     case 'python': {
       await fs.writeFile(path.join(rpath, 'main.py'), code, 'utf-8')
+      await fs.writeFile(path.join(rpath, 'main.py'), code, 'utf-8')
+      await fs.copyFile(
+        path.join(LANG_PATH, language, 'mempool.json'),
+        path.join(rpath, 'mempool.json')
+      )
       break
     }
     case 'javascript': {
       await fs.writeFile(path.join(rpath, 'index.js'), code, 'utf-8')
+      await fs.copyFile(
+        path.join(LANG_PATH, language, 'mempool.json'),
+        path.join(rpath, 'mempool.json')
+      )
       await fs.copyFile(
         path.join(LANG_PATH, language, 'package.json'),
         path.join(rpath, 'package.json')
@@ -49,10 +58,10 @@ export async function prepare(code: string, language: string) {
       await fs.copyFile(
         path.join(LANG_PATH, language, 'cryptopp.sh'),
         path.join(rpath, 'cryptopp.sh')
-      );
+      )
 
-      await fs.writeFile(path.join(rpath, 'main.cpp'), code, 'utf-8');
-      break;
+      await fs.writeFile(path.join(rpath, 'main.cpp'), code, 'utf-8')
+      break
     }
   }
 
@@ -64,8 +73,8 @@ export async function run(id: string, language: string, context: any) {
   let hasCompilationError = false
 
   const sourceFiles = {
-    python: ['Dockerfile', 'main.py'],
-    javascript: ['Dockerfile', 'index.js', 'package.json'],
+    python: ['Dockerfile', 'main.py', 'mempool.json'],
+    javascript: ['Dockerfile', 'index.js', 'mempool.json', 'package.json'],
     rust: ['Dockerfile', 'src/main.rs', 'Cargo.toml'],
     go: ['Dockerfile', 'main.go', 'go.mod'],
     cpp: ['Dockerfile', 'main.cpp', 'cryptopp.sh'],
