@@ -1,9 +1,17 @@
-FROM gcc:13.1.0
+FROM alpine:latest
 
-WORKDIR /usr/app
+WORKDIR /usr/src/app
 
-COPY . /usr/app
+# Copy the script
+COPY cryptopp.sh .
 
-RUN g++ -o main main.cpp
+# Make the script executable and run it
+RUN chmod +x cryptopp.sh && ./cryptopp.sh
+
+# Copy your application files
+COPY . .
+
+# Build your application
+RUN g++ -o main main.cpp -lcryptopp
 
 CMD ["./main"]
