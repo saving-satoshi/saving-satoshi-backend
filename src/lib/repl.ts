@@ -18,7 +18,6 @@ export async function prepare(code: string, language: string) {
   switch (language) {
     case 'python': {
       await fs.writeFile(path.join(rpath, 'main.py'), code, 'utf-8')
-      await fs.writeFile(path.join(rpath, 'main.py'), code, 'utf-8')
       await fs.copyFile(
         path.join(LANG_PATH, language, 'mempool.json'),
         path.join(rpath, 'mempool.json')

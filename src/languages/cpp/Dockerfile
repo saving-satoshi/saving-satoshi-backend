@@ -8,10 +8,10 @@ COPY cryptopp.sh .
 # Make the script executable and run it
 RUN chmod +x cryptopp.sh && ./cryptopp.sh
 
-# Copy your application files
+# Copy application files
 COPY . /usr/app
 
-# Build your application
+# Build application
 RUN g++ -o main main.cpp -lcryptopp
 
 CMD ["./main"]
