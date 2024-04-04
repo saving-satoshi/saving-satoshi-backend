@@ -1,12 +1,7 @@
-FROM gcc:13.1.0
+# Use cpp-base image
+FROM cpp-base:latest
 
 WORKDIR /usr/app
-
-# Copy the script
-COPY cryptopp.sh .
-
-# Make the script executable and run it
-RUN chmod +x cryptopp.sh && ./cryptopp.sh
 
 # Copy application files
 COPY . /usr/app
