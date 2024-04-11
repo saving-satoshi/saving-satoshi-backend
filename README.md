@@ -7,34 +7,46 @@ You can find our front-end code repository [here](https://github.com/saving-sato
 
 TBD
 
-## Local Development Setup
+## Local development setup
 
 This guide will help you set up this project for local development.
 
 ## Prerequisites
 
-- Before setting up the project, you should have the base image for the REPL which includes all the dependencies for each programming language.
+Ensure you have the following installed on your machine:
+
+- [Node.js](https://nodejs.org)
+- [yarn](https://yarnpkg.com/)
+- [PostgreSQL](https://www.postgresql.org/) (optional, can be provisioned via docker)
+- [Docker](https://docs.docker.com/engine/install/)
+
+> Before setting up the project, you should have the base image for the REPL which includes all the dependencies for each programming language.
 
 ```bash
  cd src/base_images
  ```
- 
- - choose any of the language you want to build for, for example,
 
-> to build base image for `c++`, cd into `cpp` directory and run the following command
+- choose any of the language you want to build for, for example,
+
+> to build base image for `c++`, cd into `cpp` in the base_images directory and run the following command
 
 ```bash
 docker build -t cpp-base .
 ```
 
-Also, ensure you have the following installed on your machine:
+> To build base image for javascript, cd into javascript in the base_images directory and run the following command
 
-- [Node.js](https://nodejs.org)
-- [yarn](https://yarnpkg.com/)
-- [PostgreSQL](https://www.postgresql.org/) (optional)
-- [Docker](https://docs.docker.com/engine/install/)
+```bash
+docker build -t js-base .
+```
 
-## Initial Setup
+> To build base image for python, cd into python in the base_images directory and run the following command
+
+```bash
+docker build -t python-base .
+```
+
+## Initial setup
 
 1. Clone the code from this repository.
 2. Copy the `.env.example` file to `.env`.
@@ -42,7 +54,7 @@ Also, ensure you have the following installed on your machine:
 4. Run `make run` to start the server.
 5. To stop the server, run `ctlr C`, then run `make stop-deps` to stop the database.
 
-## Running the Project After Initial Setup
+## Running the roject after initial setup
 
 1. Run `make start-deps` to start the database.
 2. Run `make run` to start the project.
@@ -51,6 +63,7 @@ Also, ensure you have the following installed on your machine:
 ## Accessing the Database
 
 You can access the database using the `DATABASE_URL` credentials in the `.env` file for local development. You can use any DB client of your choice.
+
 ## Postman
 
 You can find our Postman workspace [here](https://www.postman.com/saving-satoshi/workspace/saving-satoshi/collection/1182590-df829bc3-2d1a-43dc-8048-8480dfd02f75?ctx=documentation).
