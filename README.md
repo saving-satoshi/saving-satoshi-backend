@@ -43,7 +43,7 @@ docker build -t js-base .
 > To build base image for python, cd into python in the base_images directory and run the following command
 
 ```bash
-docker build -t python-base .
+docker build -t py-base .
 ```
 
 ## Initial setup
