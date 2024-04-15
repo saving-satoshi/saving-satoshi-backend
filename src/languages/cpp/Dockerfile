@@ -1,9 +1,12 @@
-FROM gcc:13.1.0
+# Use cpp-base image
+FROM cpp-base:latest
 
 WORKDIR /usr/app
 
+# Copy application files
 COPY . /usr/app
 
-RUN g++ -o main main.cpp
+# Build application
+RUN g++ -o main main.cpp -lcryptopp
 
 CMD ["./main"]

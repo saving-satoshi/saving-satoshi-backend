@@ -1,9 +1,10 @@
-FROM node:20-bullseye-slim
+# Use node-base image
+FROM js-base:latest
 
 WORKDIR /usr/app
+
+# Copy application files
 COPY ./ /usr/app
-RUN npm install
 
-ENV NODE_ENV=development
-
-CMD node index.js
+# Run the application
+CMD ["node", "index.js"]

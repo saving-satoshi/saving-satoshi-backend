@@ -9,24 +9,60 @@ TBD
 
 ## Local development setup
 
-To run this project locally:
+This guide will help you set up this project for local development.
 
-1. Ensure you have [Node.js](https://nodejs.org), [yarn](https://yarnpkg.com/) and [PostgreSQL](https://www.postgresql.org/) installed on your machine.
-2. Download the code from this repository.
-3. Create an `.env` file and replace the values with your own. You can find an example [here](https://github.com/saving-satoshi/saving-satoshi-backend/blob/master/.env.example).
-4. Run `yarn` to install dependencies.
-5. Run `yarn db:init` to initialize the database.
-6. Run `yarn db:migrate` to run all database migrations.
-7. Run `yarn copy-files` to copy all files from the `src/assets` folder to the `dist` folder. (without this you won't be able to run scripts locally).
-8. Start docker.
-9. Run `yarn dev` to spin up the development environment.
+## Prerequisites
 
-## Run using Docker
+Ensure you have the following installed on your machine:
 
-To run this project locally using Docker:
+- [Node.js](https://nodejs.org)
+- [yarn](https://yarnpkg.com/)
+- [PostgreSQL](https://www.postgresql.org/) (optional, can be provisioned via docker)
+- [Docker](https://docs.docker.com/engine/install/)
 
-1. Run `docker build -t saving-satoshi-backend .` in the root folder.
-2. Run `docker run -p 8000:8000 saving-satoshi-backend`
+> Before setting up the project, you should have the base image for the REPL which includes all the dependencies for each programming language.
+
+```bash
+ cd src/base_images
+ ```
+
+- choose any of the language you want to build for, for example,
+
+> to build base image for `c++`, cd into `cpp` in the base_images directory and run the following command
+
+```bash
+docker build -t cpp-base .
+```
+
+> To build base image for javascript, cd into javascript in the base_images directory and run the following command
+
+```bash
+docker build -t js-base .
+```
+
+> To build base image for python, cd into python in the base_images directory and run the following command
+
+```bash
+docker build -t py-base .
+```
+
+## Initial setup
+
+1. Clone the code from this repository.
+2. Copy the `.env.example` file to `.env`.
+3. Run `make init` to setup the database, run migration, copy necessary files and run the project for the first time.
+4. Run `make run` to start the server.
+5. To stop the server, run `ctlr C`, then run `make stop-deps` to stop the database.
+
+## Running the roject after initial setup
+
+1. Run `make start-deps` to start the database.
+2. Run `make run` to start the project.
+3. You can now access the project at `http://localhost:8000`.
+
+## Accessing the Database
+
+You can access the database using the `DATABASE_URL` credentials in the `.env` file for local development. You can use any DB client of your choice.
 
 ## Postman
 
