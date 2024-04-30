@@ -23,16 +23,13 @@ class Stream extends Writable {
   }
 
   sendLines(lines) {
-    lines.forEach((line) => {
-      line = this.transformer(line)
-      if (line) {
-        line = line.replace(/\r$/, '')
-        this.send({
-          type: this.channel,
-          payload: line,
-        })
-      }
-    })
+    const joinedLines = lines.map(this.transformer).filter(Boolean).join('\n');
+    if (joinedLines) {
+      this.send({
+        type: this.channel,
+        payload: joinedLines,
+      })
+    }
   }
 
   getError(chunk) {
