@@ -10,7 +10,7 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "@0tuedon/bitcoin_rpcjs": "^1.0.0",
+    "@0tuedon/bitcoin_rpcjs": "^253.1.2",
     "@savingsatoshi/secp256k1js": "^1.0.0",
     "@savingsatoshi/bech32js": "^1.0.0",
     "elliptic": "^6.5.4"
