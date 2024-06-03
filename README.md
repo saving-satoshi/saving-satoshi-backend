@@ -66,7 +66,7 @@ You can access the database using the `DATABASE_URL` credentials in the `.env` f
 
 ## Realeasing a New Chapter
 
-After pushing lesson content to master a chapter will remain disabled until a new feature flag is pushed. To unlock a new chapter you must push a feature-flag to the api.  Here is the necessary scaffold to unlock the next chapter.
+After pushing lesson content to master a chapter will remain disabled until a new feature flag is pushed. To unlock a new chapter you must push a feature flag request to the api with the chapter number specified.  Here is the necessary scaffold to unlock the next chapter.
 
 ```bash
 curl --location --request PUT '${backend.api}/v1/features/' \
