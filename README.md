@@ -64,6 +64,21 @@ docker build -t py-base .
 
 You can access the database using the `DATABASE_URL` credentials in the `.env` file for local development. You can use any DB client of your choice.
 
+## Realeasing a New Chapter
+
+After pushing lesson content to master a chapter will remain disabled until a new feature flag is pushed. To unlock a new chapter you must push a feature flag request to the api with the chapter number specified.  Here is the necessary scaffold to unlock the next chapter.
+
+```bash
+curl --location --request PUT '${backend.api}/v1/features/' \
+--header 'Origin: http://localhost:3000/' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer ${token}' \
+--data '{
+  "feature_name": "chapter_#_enabled",
+  "feature_value": 1
+}'
+```
+
 ## Postman
 
 You can find our Postman workspace [here](https://www.postman.com/saving-satoshi/workspace/saving-satoshi/collection/1182590-df829bc3-2d1a-43dc-8048-8480dfd02f75?ctx=documentation).
