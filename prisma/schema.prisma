@@ -30,7 +30,7 @@ model accounts_progress {
 model accounts_data {
   id        Int    @id @default(autoincrement())
   account   Int
-  lesson_id String @db.VarChar(8)
+  lesson_id String @db.VarChar(20)
   data      Json?
 
   @@unique([account, lesson_id])

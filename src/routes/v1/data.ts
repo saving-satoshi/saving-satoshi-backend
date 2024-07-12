@@ -7,7 +7,7 @@ const router = Router()
 const prisma = new PrismaClient()
 
 router.get('/:lesson_id', authenticated, async (req: RequestWithToken, res) => {
-  try {
+try {
     const lessonId = req.params.lesson_id
     const accountId = req.account.id
 
