@@ -1,6 +1,6 @@
 // prisma/scripts/backfillProgressState.js
 
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient, Prisma } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const defaultProgressState = {
@@ -298,7 +298,11 @@ const keysMap = {
 async function main() {
   // Fetch all accounts_progress entries that need to be backfilled
   const accountsProgress = await prisma.accounts_progress.findMany({
-    where: { progress_state: null },
+    where: { 
+      progress_state: {
+        equals: Prisma.JsonNullValueFilter.Null
+      }
+    },
   });
 
   for (const account of accountsProgress) {
