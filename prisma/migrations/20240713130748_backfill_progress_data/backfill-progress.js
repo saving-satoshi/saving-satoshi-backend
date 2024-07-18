@@ -295,8 +295,26 @@ const keysMap = {
   'CH9OUT1': { chapter: 9, lesson: 'CH9OUT1' },
 };
 
+async function duplicateAccountsData(accountId, lessonId, newLessonId) {
+  const dataEntries = await prisma.accounts_data.findMany({
+    where: {
+      account: accountId,
+      lesson_id: lessonId,
+    },
+  });
+
+  for (const entry of dataEntries) {
+    await prisma.accounts_data.create({
+      data: {
+        account: entry.account,
+        lesson_id: newLessonId,
+        data: entry.data,
+      },
+    });
+  }
+}
+
 async function main() {
-  // Fetch all accounts_progress entries that need to be backfilled
   const accountsProgress = await prisma.accounts_progress.findMany({
     where: { 
       progress_state: {
@@ -314,10 +332,8 @@ async function main() {
       continue;
     }
 
-    // Create a copy of the default progress state
     const newProgressState = JSON.parse(JSON.stringify(defaultProgressState));
 
-    // Mark the relevant chapters and lessons as completed
     newProgressState.currentChapter = progressKey.chapter;
     newProgressState.currentLesson = progressKey.lesson;
 
@@ -338,11 +354,22 @@ async function main() {
       }
     }
 
-    // Update the account's progress_state
     await prisma.accounts_progress.update({
       where: { id: account.id },
       data: { progress_state: newProgressState },
     });
+
+    // Duplicate accounts_data rows for lessons with difficulty
+    const lessonsToDuplicate = [
+      { oldId: 'CH6INO4', newId: 'CH6INO4_NORMAL' },
+      { oldId: 'CH6PUT1', newId: 'CH6PUT1_NORMAL' },
+      { oldId: 'CH6PUT2', newId: 'CH6PUT2_NORMAL' },
+      { oldId: 'CH6PUT3', newId: 'CH6PUT3_NORMAL' },
+    ];
+
+    for (const lesson of lessonsToDuplicate) {
+      await duplicateAccountsData(account.id, lesson.oldId, lesson.newId);
+    }
   }
 
   console.log('Backfill completed!');
