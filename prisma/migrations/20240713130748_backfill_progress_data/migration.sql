@@ -1,1 +1,3 @@
--- This is an empty migration.
+-- This is an empty migration.  It was created to backfill data in the database however the script itself didn't run.  I'm not sure on the 
+-- consequences of removing this migration folder and the migration.sql file.  I'm not sure if it's safe to remove this folder and file so 
+-- I'm leaving it here for now.
