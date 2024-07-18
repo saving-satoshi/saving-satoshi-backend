@@ -14,22 +14,18 @@ router.get('/', authenticated, async (req: RequestWithToken, res) => {
     })
 
     if (!progressEntry) {
-      // If no entry exists, create a new one
-      const newProgressEntry = await prisma.accounts_progress.create({
-        data: {
-          account: req.account.id,
-          progress: 'CH1INT1',
-        },
-      })
-
-      return res.status(200).json({
-        account: newProgressEntry.account,
-        progress: newProgressEntry.progress,
+      return res.status(404).json({
+        errors: [
+          {
+            message: "Progress not found for account",
+          },
+        ],
       })
     } else {
       res.status(200).json({
         account: progressEntry.account,
         progress: progressEntry.progress,
+        progress_state: progressEntry.progress_state,
       })
     }
   } catch (err) {
@@ -56,7 +52,10 @@ router.put('/', authenticated, async (req: RequestWithToken, res) => {
       // Update the existing progress
       const updatedProgress = await prisma.accounts_progress.update({
         where: { id: existingProgress.id },
-        data: { progress: req.body.progress },
+        data: { 
+          progress: req.body.progress,
+          progress_state: req.body.progress_state,
+        },
       })
 
       res.status(200).json(updatedProgress)
@@ -66,6 +65,7 @@ router.put('/', authenticated, async (req: RequestWithToken, res) => {
         data: {
           account: req.account.id,
           progress: req.body.progress,
+          progress_state: req.body.progress_state,
         },
       })
 

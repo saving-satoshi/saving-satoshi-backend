@@ -17,9 +17,11 @@ model accounts {
 }
 
 model accounts_progress {
-  id       Int       @id @default(autoincrement())
-  account  Int       @unique
-  progress String    @db.VarChar(8)
+  id            Int       @id @default(autoincrement())
+  account       Int       @unique
+  progress      String    @db.VarChar(8)
+  progress_state Json?
+
   accounts accounts? @relation(fields: [account], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "accounts_progress_account_id_fkey")
 
   @@index([account], map: "idx_accounts_progress_account_id")
@@ -28,7 +30,7 @@ model accounts_progress {
 model accounts_data {
   id        Int    @id @default(autoincrement())
   account   Int
-  lesson_id String @db.VarChar(8)
+  lesson_id String @db.VarChar(20)
   data      Json?
 
   @@unique([account, lesson_id])

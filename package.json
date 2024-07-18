@@ -15,7 +15,8 @@
     "prettier": "prettier --write --ignore-unknown .",
     "prettier:check": "prettier --check --ignore-unknown .",
     "db:generate": "npx prisma generate",
-    "db:migrate": "npx prisma migrate dev --name update"
+    "db:migrate:dev": "npx prisma migrate dev --name update && node prisma/migrations/20240713130748_backfill_progress_data/backfill-progress.js",
+    "db:migrate:production": "npx prisma migrate deploy && yarn db:generate && node prisma/migrations/20240713130748_backfill_progress_data/backfill-progress.js"
   },
   "_moduleAliases": {
     "lib": "dist/lib",

@@ -1,6 +1,6 @@
 init:
 	docker start saving-satoshi || docker run --name saving-satoshi -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres
-	yarn db:migrate
+	yarn db:migrate:dev
 	yarn copy-files
 
 start-deps:
