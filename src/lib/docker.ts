@@ -4,10 +4,10 @@ import Docker from 'dockerode'
 export const docker = new Docker()
 
 const MAX_SCRIPT_EXECUTION_TIME =
- Number(process.env.MAX_SCRIPT_EXECUTION_TIME) || 15000
+  Number(process.env.MAX_SCRIPT_EXECUTION_TIME) || 15000
 
 function buildImage(p, id, logStream, files) {
- return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     docker.buildImage(
       {
         context: path.join(p),
@@ -18,7 +18,6 @@ function buildImage(p, id, logStream, files) {
         if (err) {
           reject(err)
         }
-        console.log('buildImage1')
         stream.pipe(logStream)
         docker.modem.followProgress(stream, (err, res) => {
           if (err) {
@@ -28,108 +27,125 @@ function buildImage(p, id, logStream, files) {
         })
       }
     )
- })
+  })
 }
 
 function sanitizeContainerId(id) {
- return id.slice(0, 8)
+  return id.slice(0, 8)
 }
 
 // New cleanup function
-function cleanupContainerAndImage(container, imageId, send) {
- container.inspect((err, data) => {
-    if (err) {
-      console.error(`Failed to inspect container: ${err}`)
-    } else {
-      const containerState = data.State.Status
+async function cleanupContainerAndImage(container, imageId, send) {
+  try {
+    const data = await container.inspect()
 
-      if (containerState === 'running') {
-        container.kill((err) => {
-          if (err) {
-            console.error(`Failed to kill container: ${err}`)
-          } else {
-            send({
-              type: 'debug',
-              payload: `[system] Container ${sanitizeContainerId(container.id)} killed.`,
-              channel: 'runtime',
-            })
-          }
-
-          removeContainerAndImage(container, imageId, send)
+    if (data.State.Status === 'running') {
+      try {
+        await container.kill()
+        send({
+          type: 'debug',
+          payload: `[system] Container ${sanitizeContainerId(
+            container.id
+          )} killed.`,
+          channel: 'runtime',
         })
-      } else {
-        removeContainerAndImage(container, imageId, send)
+      } catch (err) {
+        console.error(`Failed to kill container: ${err}`)
       }
     }
- })
+
+    await removeContainer(container, send)
+    await removeImageIfNoContainers(imageId, send)
+  } catch (err) {
+    console.error(`Failed to inspect container: ${err}`)
+    await removeContainer(container, send)
+    await removeImageIfNoContainers(imageId, send)
+  }
 }
 
-function removeContainerAndImage(container, imageId, send) {
- container.remove((err) => {
-    if (err) {
-      console.error(`Failed to remove container: ${err}`)
-    } else {
+async function removeImageIfNoContainers(imageId, send) {
+  try {
+    // List all containers using this image
+    const containers = await docker.listContainers({
+      all: true,
+      filters: {
+        ancestor: [imageId],
+      },
+    })
+
+    // Only remove the image if no containers are using it
+    if (containers.length === 0) {
+      await docker.getImage(imageId).remove({ force: true })
       send({
         type: 'debug',
-        payload: `[system] Container ${sanitizeContainerId(container.id)} removed.`,
+        payload: `[system] Image ${imageId} removed.`,
         channel: 'runtime',
       })
-
-      docker.getImage(imageId).remove((err) => {
-        if (err) {
-          console.error(`Failed to remove image: ${err}`)
-        } else {
-          send({
-            type: 'debug',
-            payload: `[system] Image ${imageId} removed.`,
-            channel: 'runtime',
-          })
-        }
-      })
+    } else {
+      console.log(
+        `Image ${imageId} still has ${containers.length} containers, skipping removal`
+      )
     }
- })
+  } catch (err) {
+    console.error(`Failed to remove image: ${err}`)
+  }
+}
+
+async function removeContainer(container, send) {
+  try {
+    await container.remove()
+    send({
+      type: 'debug',
+      payload: `[system] Container ${sanitizeContainerId(
+        container.id
+      )} removed.`,
+      channel: 'runtime',
+    })
+  } catch (err) {
+    console.error(`Failed to remove container: ${err}`)
+  }
 }
 
 function runContainer(id, send, writeStream, context): Promise<boolean> {
- return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
+    let isCleanedUp = false
+
     send({
       type: 'debug',
       payload: '[system] Creating container...',
       channel: 'runtime',
     })
 
-    docker.createContainer({ Image: id, name: id, Tty: true },
+    docker.createContainer(
+      { Image: id, name: id, Tty: true },
       (err, container) => {
         if (err) {
           return reject(err)
         }
 
-        console.log('container', container)
-
         let isRunning = false
-
         const containerId = sanitizeContainerId(container.id)
+
+        // Promise-based cleanup function
+        const cleanup = async () => {
+          if (!isCleanedUp) {
+            isCleanedUp = true
+            isRunning = false
+
+            try {
+              writeStream.end()
+              await cleanupContainerAndImage(container, id, send)
+              resolve(true)
+            } catch (error) {
+              console.error('Cleanup failed:', error)
+              reject(error)
+            }
+          }
+        }
 
         const job = context.jobs[context.socketId]
         job.container = container
-        job.onKill = () => {
-          isRunning = false
-          cleanupContainerAndImage(container, id, send)
-          writeStream.end()
-          resolve(true)
-        }
-
-        send({
-          type: 'debug',
-          payload: `[system] Container ${containerId} created.`,
-          channel: 'runtime',
-        })
-
-        send({
-          type: 'debug',
-          payload: `[system] Attaching WebSocket...`,
-          channel: 'runtime',
-        })
+        job.onKill = cleanup
 
         container.attach(
           { stream: true, stdout: true, stderr: true },
@@ -138,57 +154,44 @@ function runContainer(id, send, writeStream, context): Promise<boolean> {
               return reject(err)
             }
 
-            send({
-              type: 'debug',
-              payload: `[system] WebSocket attached.`,
-              channel: 'runtime',
-            })
-
-            // Pipe container stdout to client.
             stream.pipe(writeStream)
 
-            send({
-              type: 'debug',
-              payload: `[system] Starting container ${containerId}...`,
-              channel: 'runtime',
-            })
-
             // Listen for kill signal
-            writeStream.onKill = () => {
-              setTimeout(() => {
-                isRunning = false
+            writeStream.onKill = async () => {
+              if (!isCleanedUp) {
                 stream.unpipe(writeStream)
-                writeStream.end()
-                cleanupContainerAndImage(container, id, send)
-              }, 1000)
+                await cleanup()
+              }
             }
 
-            setTimeout(() => {
-              if (isRunning) {
-                cleanupContainerAndImage(container, id, send)
+            // Set timeout for max execution time
+            const timeoutId = setTimeout(async () => {
+              if (isRunning && !isCleanedUp) {
+                stream.unpipe(writeStream)
+                await cleanup()
               }
             }, MAX_SCRIPT_EXECUTION_TIME)
 
             // Start the container
             container.start((err) => {
               if (err) {
+                clearTimeout(timeoutId)
                 return reject(err)
               }
 
               isRunning = true
 
-              send({
-                type: 'debug',
-                payload: `[system] Container ${containerId} started.`,
-                channel: 'runtime',
-              })
+              // Wait for container to stop
+              container.wait(async (err, result) => {
+                clearTimeout(timeoutId)
 
-              // Call the cleanup function when the container stops
-              container.wait((err) => {
                 if (err) {
-                 console.error(`Failed to wait for container to stop: ${err}`)
-                } else {
-                 cleanupContainerAndImage(container, id, send)
+                  console.error(`Failed to wait for container to stop: ${err}`)
+                }
+
+                if (!isCleanedUp) {
+                  stream.unpipe(writeStream)
+                  await cleanup()
                 }
               })
             })
@@ -196,10 +199,10 @@ function runContainer(id, send, writeStream, context): Promise<boolean> {
         )
       }
     )
- })
+  })
 }
 
 export default {
- buildImage,
- runContainer,
+  buildImage,
+  runContainer,
 }
