@@ -7,6 +7,7 @@ import { LANG_PATH } from 'config'
 import Stream from './stream'
 
 export async function prepare(code: string, language: string) {
+  const decodedCode = Buffer.from(code, 'base64').toString('utf-8')
   const id = uuid()
   const rpath = path.join(LANG_PATH, language, id)
   await fs.mkdir(rpath)
@@ -17,15 +18,15 @@ export async function prepare(code: string, language: string) {
 
   switch (language) {
     case 'python': {
-      await fs.writeFile(path.join(rpath, 'main.py'), code, 'utf-8')
+      await fs.writeFile(path.join(rpath, 'main.py'), decodedCode, 'utf-8')
       break
     }
     case 'javascript': {
-      await fs.writeFile(path.join(rpath, 'index.js'), code, 'utf-8')
+      await fs.writeFile(path.join(rpath, 'index.js'), decodedCode, 'utf-8')
       break
     }
     case 'go': {
-      await fs.writeFile(path.join(rpath, 'main.go'), code, 'utf-8')
+      await fs.writeFile(path.join(rpath, 'main.go'), decodedCode, 'utf-8')
       await fs.copyFile(
         path.join(LANG_PATH, language, 'go.mod'),
         path.join(rpath, 'go.mod')
@@ -38,11 +39,11 @@ export async function prepare(code: string, language: string) {
         path.join(LANG_PATH, language, 'Cargo.toml'),
         path.join(rpath, 'Cargo.toml')
       )
-      await fs.writeFile(path.join(rpath, 'src', 'main.rs'), code, 'utf-8')
+      await fs.writeFile(path.join(rpath, 'src', 'main.rs'), decodedCode, 'utf-8')
       break
     }
     case 'cpp': {
-      await fs.writeFile(path.join(rpath, 'main.cpp'), code, 'utf-8')
+      await fs.writeFile(path.join(rpath, 'main.cpp'), decodedCode, 'utf-8')
       break
     }
   }
