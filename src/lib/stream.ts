@@ -21,8 +21,8 @@ class Stream extends Writable {
     this.hasError = false
   }
 
-  sendLines(lines) {
-    const joinedLines = lines.map(this.transformer).filter(Boolean).join('');
+  async sendLines(lines) {
+    const joinedLines = lines.map(this.transformer).filter(Boolean).join('')
     if (joinedLines) {
       this.send({
         type: this.channel,
@@ -70,33 +70,46 @@ class Stream extends Writable {
     return result
   }
 
-  _write(chunk, encoding, callback) {
-    if (chunk.toString().indexOf('KILL') !== -1) {
+  async _write(chunk, encoding, callback) {
+    try {
+      if (chunk.toString().indexOf('KILL') !== -1) {
+        const error = this.getError(chunk)
+
+        // Handle error case
+        if (error) {
+          await this.send({
+            type: 'error',
+            payload: { type: 'RuntimeError', message: error },
+          })
+          this.onKill()
+          return
+        }
+
+        // Handle successful case
+        const lines = chunk.toString().trim().split('\n')
+        const filteredLines = lines.filter((line) => line !== 'KILL')
+
+        // Send the lines first, then execute onKill
+        await this.sendLines(filteredLines)
+        this.onKill()
+        return
+      }
+
+      // Regular chunk processing
       const error = this.getError(chunk)
-      if (error) {
-        this.send({
-          type: 'error',
-          payload: { type: 'RuntimeError', message: error },
-        })
-        return this.onKill()
+      if (error || this.hasError) {
+        this.hasError = true
+        this.errorBuffer.push(error)
+        return callback()
       }
 
       const lines = chunk.toString().trim().split('\n')
-      this.sendLines(lines.filter((line) => line !== 'KILL'))
-
-      return this.onKill()
+      await this.sendLines(lines)
+      callback()
+    } catch (err) {
+      console.error('Error in stream processing:', err)
+      callback(err)
     }
-
-    const error = this.getError(chunk)
-    if (error || this.hasError) {
-      this.hasError = true
-      this.errorBuffer.push(error)
-      return callback()
-    }
-
-    const lines = chunk.toString().trim().split('\n')
-    this.sendLines(lines)
-    callback()
   }
 
   _final(callback) {

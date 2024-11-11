@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "tsc-watch --onSuccess \"node ./dist/index.js\"",
+    "dev": "tsc-watch --onSuccess \"node --max-old-space-size=1024 ./dist/index.js\"",
     "build": "npm run clean && tsc && npm run copy-files",
     "lint": "eslint .",
     "clean": "rimraf dist/",
@@ -31,6 +31,8 @@
   },
   "dependencies": {
     "@prisma/client": "5.2.0",
+    "@types/dockerode": "^3.3.31",
+    "@types/uuid": "^10.0.0",
     "ansi-to-html": "^0.7.2",
     "body-parser": "^1.20.1",
     "cookie-parser": "^1.4.6",
@@ -44,6 +46,7 @@
     "module-alias": "^2.2.2",
     "pg": "^8.9.0",
     "uuid": "^9.0.0",
+    "winston": "^3.16.0",
     "ws": "^8.13.0"
   },
   "devDependencies": {
