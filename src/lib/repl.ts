@@ -2,9 +2,10 @@ import path from 'path'
 import fs from 'fs/promises'
 import { v4 as uuid } from 'uuid'
 import Docker from 'lib/docker'
-
+import { JobManager } from 'lib/jobManager'
 import { LANG_PATH } from 'config'
 import Stream from './stream'
+import logger from './logger'
 
 export async function prepare(code: string, language: string) {
   const decodedCode = Buffer.from(code, 'base64').toString('utf-8')
@@ -39,7 +40,11 @@ export async function prepare(code: string, language: string) {
         path.join(LANG_PATH, language, 'Cargo.toml'),
         path.join(rpath, 'Cargo.toml')
       )
-      await fs.writeFile(path.join(rpath, 'src', 'main.rs'), decodedCode, 'utf-8')
+      await fs.writeFile(
+        path.join(rpath, 'src', 'main.rs'),
+        decodedCode,
+        'utf-8'
+      )
       break
     }
     case 'cpp': {
@@ -52,6 +57,10 @@ export async function prepare(code: string, language: string) {
 }
 
 export async function run(id: string, language: string, context: any) {
+  if (!context.jobs) {
+    throw new Error('JobManager not initialized')
+  }
+
   const rpath = path.join(LANG_PATH, language, id)
   let hasCompilationError = false
 
@@ -63,10 +72,11 @@ export async function run(id: string, language: string, context: any) {
     cpp: ['Dockerfile', 'main.cpp'],
   }
 
-  const send = (payload) => {
+  const send = async (payload: any): Promise<void> => {
     context.socket.send(
       JSON.stringify({ ...payload, payload: payload.payload })
     )
+    return Promise.resolve()
   }
 
   const runStream = new Stream(send, language, (r) => r, 'output')
@@ -173,7 +183,10 @@ export async function run(id: string, language: string, context: any) {
       payload: 'running',
       channel: 'build',
     })
-    const success = await Docker.runContainer(id, send, runStream, context)
+    const success = await Docker.runContainer(id, send, runStream, {
+      socketId: context.socketId,
+      jobs: context.jobs,
+    })
     await sleep(1000)
 
     if (!success) {
@@ -191,10 +204,9 @@ export async function run(id: string, language: string, context: any) {
       payload: success,
       channel: 'runtime',
     })
-
-    context.socket.close()
   } catch (ex) {
-    console.log(ex)
+    logger.error('Container execution failed:', ex)
+    await context.jobs.cleanup(context.socketId)
 
     send({
       type: 'output',
@@ -210,7 +222,12 @@ export async function run(id: string, language: string, context: any) {
 
     context.socket.close()
   } finally {
-    await fs.rm(rpath, { recursive: true })
+    try {
+      await fs.rm(rpath, { recursive: true })
+      await context.jobs.cleanup(context.socketId)
+    } catch (error) {
+      logger.error('Cleanup failed:', error)
+    }
   }
 }
 
