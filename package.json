@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "tsc-watch --onSuccess \"node --max-old-space-size=1024 ./dist/index.js\"",
+    "dev": "tsc-watch --onSuccess \"node ./dist/index.js\"",
     "build": "npm run clean && tsc && npm run copy-files",
     "lint": "eslint .",
     "clean": "rimraf dist/",
