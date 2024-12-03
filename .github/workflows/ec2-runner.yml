@@ -34,14 +34,22 @@ jobs:
           chmod 600 ~/.ssh/ec2_key
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Create Remote Directory
+      - name: Create Remote Directories
         run: |
-          ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "mkdir -p ~/app/prisma"
+          ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            mkdir -p ~/app/dist
+            mkdir -p ~/app/prisma
+          EOF
 
       - name: Deploy to EC2
         run: |
-          scp -i ~/.ssh/ec2_key -r dist/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/
+          # Copy dist directory (contains all built files)
+          scp -i ~/.ssh/ec2_key -r dist/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/dist/
+          
+          # Copy essential files
           scp -i ~/.ssh/ec2_key package.json yarn.lock ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/
+          
+          # Copy prisma directory
           scp -i ~/.ssh/ec2_key -r prisma/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/prisma/
 
       - name: Create .env file
@@ -66,10 +74,10 @@ jobs:
         run: |
           ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             cd ~/app
-            if pm2 list | grep -q index; then
-              pm2 restart index
+            if pm2 list | grep -q app; then
+              pm2 restart app
             else
-              pm2 start index
+              pm2 start dist/index.js --name app
             fi
             pm2 save
           EOF
