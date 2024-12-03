@@ -2,7 +2,7 @@ name: ssb CI/CD
 
 on:
   push:
-    branches: ['master']
+    branches: ["master"]
   workflow_dispatch:
 
 jobs:
@@ -36,12 +36,13 @@ jobs:
 
       - name: Create Remote Directory
         run: |
-          ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "mkdir -p ~/app"
+          ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "mkdir -p ~/app/prisma"
 
       - name: Deploy to EC2
         run: |
           scp -i ~/.ssh/ec2_key -r dist/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/
           scp -i ~/.ssh/ec2_key package.json yarn.lock ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/
+          scp -i ~/.ssh/ec2_key -r prisma/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/prisma/
 
       - name: Create .env file
         run: |
