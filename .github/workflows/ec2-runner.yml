@@ -1,0 +1,68 @@
+name: ssb build
+
+on:
+  push:
+    branches: ['master']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Install Dependencies
+        run: yarn
+
+      - name: Build
+        run: yarn build
+
+      - name: Create Remote Directory
+        run: |
+          ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "mkdir -p ~/app"
+
+      - name: Deploy to EC2
+        run: |
+          scp -i ~/.ssh/ec2_key -r ./* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/
+          scp -i ~/.ssh/ec2_key yarn.lock ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/
+
+      - name: Create .env file
+        run: |
+          ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo '${{ secrets.PROD_SECRET_FILE }}' > ~/app/.env"
+
+      - name: Install Dependencies and Run Migrations
+        run: |
+          ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            cd ~/app
+            yarn install
+            yarn db:migrate:production
+          EOF
+
+      - name: Restart Application
+        run: |
+          ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            cd ~/app
+            if pm2 list | grep -q index; then
+              pm2 restart index
+            else
+              pm2 start index
+            fi
+            pm2 save
+          EOF
