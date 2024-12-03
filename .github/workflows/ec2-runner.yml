@@ -1,4 +1,4 @@
-name: ssb build
+name: ssb CI/CD
 
 on:
   push:
@@ -21,6 +21,12 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'yarn'
 
+      - name: Install Dependencies
+        run: yarn
+
+      - name: Build
+        run: yarn build
+
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
@@ -28,30 +34,30 @@ jobs:
           chmod 600 ~/.ssh/ec2_key
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Install Dependencies
-        run: yarn
-
-      - name: Build
-        run: yarn build
-
       - name: Create Remote Directory
         run: |
           ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "mkdir -p ~/app"
 
       - name: Deploy to EC2
         run: |
-          scp -i ~/.ssh/ec2_key -r ./* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/
-          scp -i ~/.ssh/ec2_key yarn.lock ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/
+          scp -i ~/.ssh/ec2_key -r dist/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/
+          scp -i ~/.ssh/ec2_key package.json yarn.lock ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/
 
       - name: Create .env file
         run: |
           ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo '${{ secrets.PROD_SECRET_FILE }}' > ~/app/.env"
 
-      - name: Install Dependencies and Run Migrations
+      - name: Install Production Dependencies
         run: |
           ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             cd ~/app
-            yarn install
+            yarn install --production
+          EOF
+
+      - name: Run Database Migrations
+        run: |
+          ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            cd ~/app
             yarn db:migrate:production
           EOF
 
