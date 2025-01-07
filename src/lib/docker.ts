@@ -217,7 +217,7 @@ async function runContainer(
       }
     }
 
-    // Set running state before starting container
+    // Set running state in the job manager before starting container
     context.jobs.setRunning(context.socketId, true)
 
     timeoutId = setTimeout(async () => {
