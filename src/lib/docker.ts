@@ -3,6 +3,7 @@ import Docker from 'dockerode'
 import type { Container } from 'dockerode'
 import logger from './logger'
 import { JobManager } from './jobManager'
+import { CONTAINERS_SCHEDULE, CONTAINERS_TO_KEEP_ON } from 'config'
 
 export const docker = new Docker()
 
@@ -64,6 +65,31 @@ async function buildImage(
   } catch (error) {
     logger.error(`Build image failed: ${error.message}`)
     throw error
+  }
+}
+
+export async function killContainers() {
+  const allContainers = await docker.listContainers()
+  let containersKilled = 0
+  for (let container of allContainers) {
+    if (container.Status) {
+      const stringTime = parseInt(container.Status.split(' ')[1])
+      const minutes = container.Status.split(' ')[2]
+      if (minutes === 'minutes' && stringTime >= CONTAINERS_SCHEDULE) {
+        const isSafeContainer = CONTAINERS_TO_KEEP_ON.includes(
+          container.Names[0]
+        )
+        // So our database migration doesn't get killed
+        if (!isSafeContainer) {
+          await docker.getContainer(container.Id).kill()
+          await docker.getContainer(container.Id).remove()
+          containersKilled++
+        }
+      }
+    }
+  }
+  if (containersKilled) {
+    logger.info(`${containersKilled} containers were killed`)
   }
 }
 

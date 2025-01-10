@@ -7,16 +7,16 @@ import * as http from 'http'
 import * as WebSocket from 'ws'
 import * as repl from 'lib/repl'
 import logger from 'lib/logger'
+import cron from 'node-cron'
 
 import { v1 } from './routes'
 
 import { JobManager } from './lib/jobManager'
-
-const jobManager = new JobManager()
+import { killContainers } from 'lib/docker'
+import { CONTAINERS_SCHEDULE } from 'config'
 
 const port = process.env.PORT
 
-const JOBS = {}
 const WHITELIST = process.env.WHITELIST.split(',').map((a) => a.trim())
 
 function isAllowedOrigin(origin: string): boolean {
@@ -37,6 +37,24 @@ async function run() {
   const app = express()
   const server = http.createServer(app)
   const wss = new WebSocket.Server({ server })
+
+// Cron Job Wrapper
+  function scheduleRemovalOfContainers(
+    expression: string,
+    fn: () => Promise<void>,
+    options = {}
+  ) {
+    cron.schedule(
+      expression,
+      () => fn().catch((e) => logger.error(e)),
+      options
+    )
+  }
+
+  // Cron job to run every specified minutes
+  scheduleRemovalOfContainers(`*/${CONTAINERS_SCHEDULE} * * * *`, async () => {
+    await killContainers()
+  })
 
   // WebSocket connection handler
   wss.on(
