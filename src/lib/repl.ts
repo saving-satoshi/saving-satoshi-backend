@@ -7,6 +7,9 @@ import { LANG_PATH } from 'config'
 import Stream from './stream'
 import logger from './logger'
 
+// Prepares a new directory that contains the user's code as well
+// as a copy of the Dockerfile (from src/languages) needed to run the repl
+// Returns a unique ID for this new directory
 export async function prepare(code: string, language: string) {
   const decodedCode = Buffer.from(code, 'base64').toString('utf-8')
   const id = uuid()
@@ -72,6 +75,7 @@ export async function run(id: string, language: string, context: any) {
     cpp: ['Dockerfile', 'main.cpp'],
   }
 
+  // A method to send messages to the frontend via the websocket
   const send = async (payload: any): Promise<void> => {
     context.socket.send(
       JSON.stringify({ ...payload, payload: payload.payload })
@@ -79,7 +83,10 @@ export async function run(id: string, language: string, context: any) {
     return Promise.resolve()
   }
 
+  // stream to use when running the container
   const runStream = new Stream(send, language, (r) => r, 'output')
+
+  // stream to use when building the image
   const buildStream = new Stream(
     send,
     language,
@@ -142,6 +149,7 @@ export async function run(id: string, language: string, context: any) {
   )
 
   try {
+    // Send a few messages to frontend
     send({
       type: 'debug',
       payload: '[system] Building Docker image...',
