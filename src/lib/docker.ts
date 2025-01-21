@@ -3,7 +3,9 @@ import Docker from 'dockerode'
 import type { Container } from 'dockerode'
 import logger from './logger'
 import { JobManager } from './jobManager'
+import { BASE_IMAGES, USER_CODE_FILES } from 'config'
 
+import * as tar from 'tar';
 export const docker = new Docker()
 
 interface DockerStream {
@@ -115,17 +117,17 @@ async function cleanupContainerAndImage(
     }
 
     // Remove image
-    try {
-      await docker.getImage(imageId).remove({ force: true })
-      logger.info(`Removed image ${imageId}`)
-      await send({
-        type: 'debug',
-        payload: `[system] Image ${imageId} removed.`,
-        channel: 'runtime',
-      })
-    } catch (err) {
-      logger.error(`Failed to remove image: ${err.message}`)
-    }
+    // try {
+    //   await docker.getImage(imageId).remove({ force: true })
+    //   logger.info(`Removed image ${imageId}`)
+    //   await send({
+    //     type: 'debug',
+    //     payload: `[system] Image ${imageId} removed.`,
+    //     channel: 'runtime',
+    //   })
+    // } catch (err) {
+    //   logger.error(`Failed to remove image: ${err.message}`)
+    // }
   } catch (err) {
     logger.error(`Failed in cleanup process: ${err.message}`)
   }
@@ -133,6 +135,8 @@ async function cleanupContainerAndImage(
 
 async function runContainer(
   id: string,
+  imageName: string,  // name of the image to base the container off of
+  userCodePath: string,   // location of the user code
   send: (message: SendMessage) => Promise<void>,
   writeStream: any,
   context: Context
@@ -154,15 +158,15 @@ async function runContainer(
 
     // Verify image exists
     try {
-      await docker.getImage(`${id}:latest`).inspect()
+      await docker.getImage(imageName).inspect()
     } catch (err) {
-      throw new Error(`Image ${id}:latest not found after build`)
+      throw new Error(`Image ${imageName} not found`)
     }
 
     container = await new Promise<Container>((resolve, reject) => {
       docker.createContainer(
         {
-          Image: `${id}:latest`,
+          Image: imageName,
           name: id,
           Tty: true,
           AttachStdout: true,
@@ -175,7 +179,37 @@ async function runContainer(
       )
     })
 
+    // Prepare to copy user code to the container
+    let userCodeFiles: string[] = USER_CODE_FILES.python;
+    if (imageName === BASE_IMAGES.javascript) {
+      userCodeFiles = USER_CODE_FILES.javascript
+    }
+
+    // The Docker API only lets you copy files in tar format. First create a tar
+    // with the user code and save it to the same directory that the user code is in
+    const tarName = 'userCode.tar'
+    const tarLocation = path.join(userCodePath, tarName);
+    logger.debug(`Creating a tar with user code in ${tarLocation}`)
+
+    await tar.create({
+        // output file
+        file: path.join(userCodePath, tarName),
+        // change working directory for the tar so it doesn't copy the entire directory structure
+        cwd: userCodePath
+      }, 
+      // location of the files to tar
+      userCodeFiles
+    ).then(_ => { logger.debug('Done creating tar with user code') })
+
+    // Copy the tar with the user code to the Docker container
+    await container.putArchive(tarLocation, {
+      path: '/usr/app' // where to extract the contents
+    }, err => {logger.error(err)})
+
+    logger.debug('Copied the user code tar to the container')
+
     const cleanup = async (): Promise<void> => {
+      console.log('cleaning up the container now')
       if (!isCleanedUp && container) {
         isCleanedUp = true
         context.jobs.setRunning(context.socketId, false)
@@ -202,7 +236,10 @@ async function runContainer(
       container.attach(
         { stream: true, stdout: true, stderr: true },
         (err, stream) => {
-          if (err) reject(err)
+          if (err) {
+            console.log('stream got an error')
+            reject(err)
+          }
           else resolve(stream)
         }
       )
@@ -231,12 +268,16 @@ async function runContainer(
     }, MAX_SCRIPT_EXECUTION_TIME)
 
     try {
+      console.log('starting the container')
       await new Promise<void>((resolve, reject) => {
         container!.start((err) => {
           if (err) {
+            console.log('i got an error!')
+            console.log(err)
             clearTimeout(timeoutId)
             reject(err)
           } else {
+            console.log('container successfully finished')
             resolve()
           }
         })
@@ -266,6 +307,7 @@ async function runContainer(
     }
   } catch (error) {
     logger.error('Container execution failed:', error)
+    console.log(error)
     if (container && !isCleanedUp) {
       await cleanupContainerAndImage(container, id, send)
     }

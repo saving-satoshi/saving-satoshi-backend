@@ -24,6 +24,7 @@ export async function prepare(code: string, language: string) {
     }
     case 'javascript': {
       await fs.writeFile(path.join(rpath, 'index.js'), decodedCode, 'utf-8')
+      console.log(`wrote index.js to ${path.join(rpath, 'index.js')}`)
       break
     }
     case 'go': {
@@ -141,52 +142,55 @@ export async function run(id: string, language: string, context: any) {
     'debug'
   )
 
+  // try {
+  //   send({
+  //     type: 'debug',
+  //     payload: '[system] Building Docker image...',
+  //     channel: 'build',
+  //   })
+  //   send({
+  //     type: 'status',
+  //     payload: 'building',
+  //     channel: 'build',
+  //   })
+  //   await Docker.buildImage(rpath, id, buildStream, sourceFiles[language])
+  // } catch (ex) {
+  //   send({
+  //     type: 'debug',
+  //     payload: `[system] Error building Docker image: ${ex.message}`,
+  //     channel: 'build',
+  //   })
+  // }
+
+  // if (hasCompilationError) {
+  //   send({
+  //     type: 'debug',
+  //     payload: `[system] Error building Docker image.`,
+  //     channel: 'build',
+  //   })
+  //   await fs.rm(rpath, { recursive: true })
+  //   return
+  // }
+
+  // send({
+  //   type: 'debug',
+  //   payload: '[system] Docker image built.',
+  //   channel: 'build',
+  // })
+
   try {
     send({
-      type: 'debug',
-      payload: '[system] Building Docker image...',
-      channel: 'build',
-    })
-    send({
       type: 'status',
-      payload: 'building',
+      payload: `[system] building container ${id}`,
       channel: 'build',
     })
-    await Docker.buildImage(rpath, id, buildStream, sourceFiles[language])
-  } catch (ex) {
-    send({
-      type: 'debug',
-      payload: `[system] Error building Docker image: ${ex.message}`,
-      channel: 'build',
-    })
-  }
-
-  if (hasCompilationError) {
-    send({
-      type: 'debug',
-      payload: `[system] Error building Docker image.`,
-      channel: 'build',
-    })
-    await fs.rm(rpath, { recursive: true })
-    return
-  }
-
-  send({
-    type: 'debug',
-    payload: '[system] Docker image built.',
-    channel: 'build',
-  })
-
-  try {
-    send({
-      type: 'status',
-      payload: 'running',
-      channel: 'build',
-    })
-    const success = await Docker.runContainer(id, send, runStream, {
-      socketId: context.socketId,
-      jobs: context.jobs,
-    })
+    // TODO use an enum for the language/image name
+    const success = await Docker.runContainer(id, language === 'javascript' ? 'js-base' : 'py-base',
+      rpath, send, runStream, {
+        socketId: context.socketId,
+        jobs: context.jobs,
+      }
+    )
     await sleep(1000)
 
     if (!success) {
@@ -199,6 +203,7 @@ export async function run(id: string, language: string, context: any) {
       })
     }
 
+    console.log('sending success message')
     send({
       type: 'end',
       payload: success,
@@ -223,7 +228,7 @@ export async function run(id: string, language: string, context: any) {
     context.socket.close()
   } finally {
     try {
-      await fs.rm(rpath, { recursive: true })
+      //await fs.rm(rpath, { recursive: true })
       await context.jobs.cleanup(context.socketId)
     } catch (error) {
       logger.error('Cleanup failed:', error)
