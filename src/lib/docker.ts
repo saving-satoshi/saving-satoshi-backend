@@ -268,7 +268,7 @@ async function runContainer(
       }
     }
 
-    // Set running state before starting container
+    // Set running state in the job manager before starting container
     context.jobs.setRunning(context.socketId, true)
 
     timeoutId = setTimeout(async () => {
@@ -285,6 +285,7 @@ async function runContainer(
       await new Promise<void>((resolve, reject) => {
         container!.start((err) => {
           if (err) {
+            logger.error('Error while starting container')
             clearTimeout(timeoutId)
             reject(err)
           } else {
