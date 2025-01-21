@@ -11,3 +11,6 @@ RUN npm install
 
 # Set environment variable
 ENV NODE_ENV=development
+
+# Run the application
+CMD ["node", "index.js"]

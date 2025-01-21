@@ -97,7 +97,7 @@ function sanitizeContainerId(id: string): string {
   return id.slice(0, 8)
 }
 
-async function cleanupContainerAndImage(
+async function cleanupContainer(
   container: Container,
   imageId: string,
   send: (message: SendMessage) => Promise<void>
@@ -140,18 +140,6 @@ async function cleanupContainerAndImage(
       logger.error(`Failed to remove container: ${err.message}`)
     }
 
-    // Remove image
-    try {
-      await docker.getImage(imageId).remove({ force: true })
-      logger.info(`Removed image ${imageId}`)
-      await send({
-        type: 'debug',
-        payload: `[system] Image ${imageId} removed.`,
-        channel: 'runtime',
-      })
-    } catch (err) {
-      logger.error(`Failed to remove image: ${err.message}`)
-    }
   } catch (err) {
     logger.error(`Failed in cleanup process: ${err.message}`)
   }
@@ -208,7 +196,7 @@ async function runContainer(
 
         try {
           writeStream.end()
-          await cleanupContainerAndImage(container, id, send)
+          await cleanupContainer(container, id, send)
         } catch (error) {
           logger.error('Cleanup failed:', error)
         } finally {
@@ -293,7 +281,7 @@ async function runContainer(
   } catch (error) {
     logger.error('Container execution failed:', error)
     if (container && !isCleanedUp) {
-      await cleanupContainerAndImage(container, id, send)
+      await cleanupContainer(container, id, send)
     }
     context.jobs.remove(context.socketId)
     throw error

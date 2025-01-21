@@ -15,3 +15,6 @@ COPY ./ /usr/app
 
 # Install dependencies
 RUN pip install savingsatoshi_secp256k1py savingsatoshi_bech32py savingsatoshi-bitcoin-rpcpy ecdsa
+
+# Run the application
+CMD ["python", "main.py"]

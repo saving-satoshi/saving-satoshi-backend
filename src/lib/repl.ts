@@ -7,15 +7,13 @@ import { LANG_PATH } from 'config'
 import Stream from './stream'
 import logger from './logger'
 
+// Prepares a new directory for user code
+// Returns a unique ID for this new directory
 export async function prepare(code: string, language: string) {
   const decodedCode = Buffer.from(code, 'base64').toString('utf-8')
   const id = uuid()
   const rpath = path.join(LANG_PATH, language, id)
-  await fs.mkdir(rpath)
-  await fs.cp(
-    path.join(LANG_PATH, language, 'Dockerfile'),
-    path.join(rpath, 'Dockerfile')
-  )
+  await fs.mkdir(rpath, { recursive: true })
 
   switch (language) {
     case 'python': {
@@ -72,6 +70,7 @@ export async function run(id: string, language: string, context: any) {
     cpp: ['Dockerfile', 'main.cpp'],
   }
 
+  // A method to send messages to the frontend via the websocket
   const send = async (payload: any): Promise<void> => {
     context.socket.send(
       JSON.stringify({ ...payload, payload: payload.payload })
@@ -79,7 +78,10 @@ export async function run(id: string, language: string, context: any) {
     return Promise.resolve()
   }
 
+  // stream to use when running the container
   const runStream = new Stream(send, language, (r) => r, 'output')
+
+  // stream to use when building the image
   const buildStream = new Stream(
     send,
     language,
@@ -142,42 +144,7 @@ export async function run(id: string, language: string, context: any) {
   )
 
   try {
-    send({
-      type: 'debug',
-      payload: '[system] Building Docker image...',
-      channel: 'build',
-    })
-    send({
-      type: 'status',
-      payload: 'building',
-      channel: 'build',
-    })
-    await Docker.buildImage(rpath, id, buildStream, sourceFiles[language])
-  } catch (ex) {
-    send({
-      type: 'debug',
-      payload: `[system] Error building Docker image: ${ex.message}`,
-      channel: 'build',
-    })
-  }
-
-  if (hasCompilationError) {
-    send({
-      type: 'debug',
-      payload: `[system] Error building Docker image.`,
-      channel: 'build',
-    })
-    await fs.rm(rpath, { recursive: true })
-    return
-  }
-
-  send({
-    type: 'debug',
-    payload: '[system] Docker image built.',
-    channel: 'build',
-  })
-
-  try {
+    // Tell the front end the container is running
     send({
       type: 'status',
       payload: 'running',
