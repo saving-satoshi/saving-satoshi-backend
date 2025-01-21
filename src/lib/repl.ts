@@ -2,8 +2,7 @@ import path from 'path'
 import fs from 'fs/promises'
 import { v4 as uuid } from 'uuid'
 import Docker from 'lib/docker'
-import { JobManager } from 'lib/jobManager'
-import { LANG_PATH } from 'config'
+import { BASE_IMAGE_NAMES, LANG_PATH, SUPPORTED_LANGUAGES } from 'config'
 import Stream from './stream'
 import logger from './logger'
 
@@ -150,10 +149,20 @@ export async function run(id: string, language: string, context: any) {
       payload: 'running',
       channel: 'build',
     })
-    const success = await Docker.runContainer(id, send, runStream, {
-      socketId: context.socketId,
-      jobs: context.jobs,
-    })
+
+    // Start the container!
+    logger.debug(`[system] starting container ${id}`)
+    const success = await Docker.runContainer(id,
+      language === SUPPORTED_LANGUAGES.javascript ?
+      BASE_IMAGE_NAMES.javascript : BASE_IMAGE_NAMES.python,
+      rpath,
+      send,
+      runStream,
+      {
+        socketId: context.socketId,
+        jobs: context.jobs,
+      }
+    )
     await sleep(1000)
 
     if (!success) {
