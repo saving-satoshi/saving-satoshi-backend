@@ -12,3 +12,5 @@ RUN git clone https://github.com/weidai11/cryptopp.git
 # Build and install the Crypto++ library
 WORKDIR /usr/app/cryptopp
 RUN make && make install
+
+CMD ["./main"]

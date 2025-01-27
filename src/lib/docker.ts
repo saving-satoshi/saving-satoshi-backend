@@ -3,8 +3,10 @@ import Docker from 'dockerode'
 import type { Container } from 'dockerode'
 import logger from './logger'
 import { JobManager } from './jobManager'
-import { CONTAINERS_SCHEDULE, CONTAINERS_TO_KEEP_ON } from 'config'
+import { BASE_IMAGE_NAMES, CONTAINERS_SCHEDULE, CONTAINERS_TO_KEEP_ON,
+  CONTAINER_WORKING_DIRECTORY, USER_CODE_FILES } from 'config'
 
+import * as tar from 'tar';
 export const docker = new Docker()
 
 interface DockerStream {
@@ -97,7 +99,7 @@ function sanitizeContainerId(id: string): string {
   return id.slice(0, 8)
 }
 
-async function cleanupContainerAndImage(
+async function cleanupContainer(
   container: Container,
   imageId: string,
   send: (message: SendMessage) => Promise<void>
@@ -140,18 +142,6 @@ async function cleanupContainerAndImage(
       logger.error(`Failed to remove container: ${err.message}`)
     }
 
-    // Remove image
-    try {
-      await docker.getImage(imageId).remove({ force: true })
-      logger.info(`Removed image ${imageId}`)
-      await send({
-        type: 'debug',
-        payload: `[system] Image ${imageId} removed.`,
-        channel: 'runtime',
-      })
-    } catch (err) {
-      logger.error(`Failed to remove image: ${err.message}`)
-    }
   } catch (err) {
     logger.error(`Failed in cleanup process: ${err.message}`)
   }
@@ -159,6 +149,8 @@ async function cleanupContainerAndImage(
 
 async function runContainer(
   id: string,
+  imageName: string,    // name of the image to base container off of
+  userCodePath: string, // location of the user code
   send: (message: SendMessage) => Promise<void>,
   writeStream: any,
   context: Context
@@ -180,15 +172,15 @@ async function runContainer(
 
     // Verify image exists
     try {
-      await docker.getImage(`${id}:latest`).inspect()
+      await docker.getImage(imageName).inspect()
     } catch (err) {
-      throw new Error(`Image ${id}:latest not found after build`)
+      throw new Error(`Image ${imageName} not found`)
     }
 
     container = await new Promise<Container>((resolve, reject) => {
       docker.createContainer(
         {
-          Image: `${id}:latest`,
+          Image: imageName,
           name: id,
           Tty: true,
           AttachStdout: true,
@@ -201,6 +193,39 @@ async function runContainer(
       )
     })
 
+    // Prepare to copy user code to the container
+    let userCodeFiles: string[] = USER_CODE_FILES.python;
+    if (imageName === BASE_IMAGE_NAMES.javascript) {
+      userCodeFiles = USER_CODE_FILES.javascript
+    }
+
+    // The Docker API only lets you copy files in tar format. First create a tar
+    // with the user code and save it to the same directory that the user code is in
+    const tarName = 'userCode.tar'
+    const tarLocation = path.join(userCodePath, tarName);
+    logger.debug(`Creating a tar with user code in ${tarLocation}`)
+
+    await tar.create({
+        // output file
+        file: path.join(userCodePath, tarName),
+        // change current working directory so it doesn't
+        // copy the entire directory structure
+        cwd: userCodePath
+      },
+      // location of files to tar
+      userCodeFiles
+    ).then(_ => { logger.debug('Created tar with user code') })
+
+    // Copy the tar with the user code to the Docker container
+    container.putArchive(tarLocation, {
+      path: CONTAINER_WORKING_DIRECTORY // where to extract the contents
+    }, err => {
+      if (err) {
+        logger.error('Got error while copying tar')
+        logger.error(err)
+      }
+    })
+
     const cleanup = async (): Promise<void> => {
       if (!isCleanedUp && container) {
         isCleanedUp = true
@@ -208,7 +233,7 @@ async function runContainer(
 
         try {
           writeStream.end()
-          await cleanupContainerAndImage(container, id, send)
+          await cleanupContainer(container, id, send)
         } catch (error) {
           logger.error('Cleanup failed:', error)
         } finally {
@@ -243,7 +268,7 @@ async function runContainer(
       }
     }
 
-    // Set running state before starting container
+    // Set running state in the job manager before starting container
     context.jobs.setRunning(context.socketId, true)
 
     timeoutId = setTimeout(async () => {
@@ -260,6 +285,7 @@ async function runContainer(
       await new Promise<void>((resolve, reject) => {
         container!.start((err) => {
           if (err) {
+            logger.error('Error while starting container')
             clearTimeout(timeoutId)
             reject(err)
           } else {
@@ -268,6 +294,7 @@ async function runContainer(
         })
       })
 
+      // Wait for the user code to finish executing
       await new Promise<void>((resolve, reject) => {
         container!.wait(async (err) => {
           clearTimeout(timeoutId)
@@ -293,7 +320,7 @@ async function runContainer(
   } catch (error) {
     logger.error('Container execution failed:', error)
     if (container && !isCleanedUp) {
-      await cleanupContainerAndImage(container, id, send)
+      await cleanupContainer(container, id, send)
     }
     context.jobs.remove(context.socketId)
     throw error

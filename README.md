@@ -50,11 +50,12 @@ docker build -t py-base .
 
 1. Clone the code from this repository.
 2. Copy the `.env.example` file to `.env`.
-3. Run `make init` to setup the database, run migration, copy necessary files and run the project for the first time.
-4. Run `make run` to start the server.
-5. To stop the server, run `ctlr C`, then run `make stop-deps` to stop the database.
+3. Build the project by running `yarn build`
+4. Run `make init` to setup the database, run migration, copy necessary files and run the project for the first time.
+5. Run `make run` to start the server.
+6. To stop the server, run `ctlr C`, then run `make stop-deps` to stop the database.
 
-## Running the roject after initial setup
+## Running the Project after initial setup
 
 1. Run `make start-deps` to start the database.
 2. Run `make run` to start the project.

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "repository": "git@github.com:saving-satoshi/saving-satoshi-backend.git",
-  "author": "Kevin Karsopawiro <k.karsopawiro@gmail.com>",
+  "author": "The Bitcoin Dev Project (https://bitcoindevs.xyz)",
   "license": "MIT",
   "scripts": {
     "start": "node dist/index.js",
@@ -33,6 +33,7 @@
     "@prisma/client": "5.2.0",
     "@types/dockerode": "^3.3.31",
     "@types/node-cron": "^3.0.11",
+    "@types/tar": "^6.1.13",
     "@types/uuid": "^10.0.0",
     "ansi-to-html": "^0.7.2",
     "body-parser": "^1.20.1",
@@ -47,6 +48,7 @@
     "module-alias": "^2.2.2",
     "node-cron": "^3.0.3",
     "pg": "^8.9.0",
+    "tar": "^7.4.3",
     "uuid": "^9.0.0",
     "winston": "^3.16.0",
     "ws": "^8.13.0"
