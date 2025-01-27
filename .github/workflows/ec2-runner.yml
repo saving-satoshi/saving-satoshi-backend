@@ -52,6 +52,9 @@ jobs:
           # Copy prisma directory
           scp -i ~/.ssh/ec2_key -r prisma/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/prisma/
 
+          # Copy base_image files
+          scp -i ~/.ssh/ec2_key -r src/base_images/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app/src/base_images/
+
       - name: Create .env file
         run: |
           ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo '${{ secrets.PROD_SECRET_FILE }}' > ~/app/.env"
