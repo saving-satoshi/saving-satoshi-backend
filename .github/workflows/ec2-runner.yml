@@ -39,6 +39,7 @@ jobs:
           ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             mkdir -p ~/app/dist
             mkdir -p ~/app/prisma
+            mkdir -p ~/app/src/base_images
           EOF
 
       - name: Deploy to EC2
