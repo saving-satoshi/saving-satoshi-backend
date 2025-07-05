@@ -52,8 +52,15 @@ docker build -t py-base .
 2. Copy the `.env.example` file to `.env`.
 3. Build the project by running `yarn build`
 4. Run `make init` to setup the database, run migration, copy necessary files and run the project for the first time.
+5. Optional: Run the tests with `yarn test`
 5. Run `make run` to start the server.
 6. To stop the server, run `ctlr C`, then run `make stop-deps` to stop the database.
+
+## Local development: running tests
+To execute the tests you need to have a postgres database running. Running the database in docker is highly recommended so the tests don't have access to other, unrelated data that may be in a local instance of postgres. If you followed the steps above, the dockerized postgres instance will already be set up. Simply run `make start-deps` to bring the database up.
+
+1. Run `yarn test` to run the tests. The tests use the `DATABASE_URL` defined in `.env`
+2. Optional: take down the database with `make stop-deps`
 
 ## Running the Project after initial setup
 
@@ -65,7 +72,7 @@ docker build -t py-base .
 
 You can access the database using the `DATABASE_URL` credentials in the `.env` file for local development. You can use any DB client of your choice.
 
-## Realeasing a New Chapter
+## Releasing a New Chapter
 
 After pushing lesson content to master a chapter will remain disabled until a new feature flag is pushed. To unlock a new chapter you must push a feature flag request to the api with the chapter number specified.  Here is the necessary scaffold to unlock the next chapter.
 
