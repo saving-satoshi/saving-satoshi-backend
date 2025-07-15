@@ -42,8 +42,9 @@ router.post('/register', async (req, res) => {
         accounts: { connect: { id: newAccount.id } },
         progress: 'CH1INT1',
       },
+    }).then((progress) => {
+      console.log(JSON.stringify(progress))
     })
-
     res.status(200).json({ id: newAccount.id })
   } catch (err) {
     res.status(500).json({
