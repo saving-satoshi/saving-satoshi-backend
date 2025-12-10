@@ -37,18 +37,15 @@ async function run() {
   const app = express()
   const server = http.createServer(app)
   const wss = new WebSocket.Server({ server })
+  const jobManager = new JobManager()
 
-// Cron Job Wrapper
+  // Cron Job Wrapper
   function scheduleRemovalOfContainers(
     expression: string,
     fn: () => Promise<void>,
     options = {}
   ) {
-    cron.schedule(
-      expression,
-      () => fn().catch((e) => logger.error(e)),
-      options
-    )
+    cron.schedule(expression, () => fn().catch((e) => logger.error(e)), options)
   }
 
   // Cron job to run every specified minutes
@@ -61,7 +58,6 @@ async function run() {
     'connection',
     (ws: WebSocket.WebSocket, request: http.IncomingMessage) => {
       const socketId = getSocketId(request.socket)
-      const jobManager = new JobManager()
 
       logger.info(`New WebSocket connection: ${socketId}`)
 
@@ -96,9 +92,7 @@ async function run() {
               }
 
               try {
-                const id = await repl.prepare(payload.code, payload.language)
-                jobManager.create(socketId, id)
-                await repl.run(id, payload.language, {
+                await repl.run(payload.code, payload.language, {
                   socket: ws,
                   jobs: jobManager,
                   socketId,

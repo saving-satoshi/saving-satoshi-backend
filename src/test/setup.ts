@@ -4,6 +4,9 @@ import { Server } from 'http';
 import routes from 'routes/v1';
 import cors from 'middleware/cors';
 
+const isUnitTest = process.env.JEST_WORKER_ID !== undefined &&
+  expect.getState().testPath?.includes('/lib/');
+
 export const prisma = new PrismaClient();
 
 export function createTestApp() {
@@ -18,6 +21,8 @@ export let server: Server;
 export let testApp: express.Application;
 
 beforeAll(async () => {
+  if (isUnitTest) return;
+
   testApp = createTestApp();
   server = testApp.listen(0);
 
@@ -25,6 +30,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
+  if (isUnitTest) return;
 
   const tables = await prisma.$queryRaw<
     Array<{ tablename: string }>
@@ -38,6 +44,12 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  await server.close();
+  if (isUnitTest) return;
+
+  if (server) {
+    await new Promise<void>((resolve, reject) => {
+      server.close((err) => (err ? reject(err) : resolve()));
+    });
+  }
   await prisma.$disconnect();
 }); 
