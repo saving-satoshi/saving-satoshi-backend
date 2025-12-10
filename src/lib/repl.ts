@@ -2,7 +2,11 @@ import path from 'path'
 import fs from 'fs/promises'
 import { v4 as uuid } from 'uuid'
 import Docker from 'lib/docker'
-import { BASE_IMAGE_NAMES, LANG_PATH, SUPPORTED_LANGUAGES } from 'config'
+import {
+  BASE_IMAGE_NAMES,
+  LANG_PATH,
+  LANGUAGE_CMD,
+} from 'config'
 import Stream from './stream'
 import logger from './logger'
 
@@ -63,12 +67,7 @@ export async function run(code: string, language: string, context: any) {
     send({ type: 'status', payload: 'running', channel: 'build' })
     logger.debug(`[system] starting container ${id}`)
 
-    const baseImage =
-      language === SUPPORTED_LANGUAGES.javascript
-        ? BASE_IMAGE_NAMES.javascript
-        : language === SUPPORTED_LANGUAGES.python
-        ? BASE_IMAGE_NAMES.python
-        : BASE_IMAGE_NAMES.javascript
+    const baseImage = BASE_IMAGE_NAMES[language]
 
     const success = await Docker.runContainer(
       id,
@@ -79,11 +78,9 @@ export async function run(code: string, language: string, context: any) {
       {
         socketId: context.socketId,
         jobs: context.jobs,
-        volume:  `${rpath}:/usr/app/user`,
-         cmd:
-      language === 'javascript'
-        ? ['node', '/usr/app/user/index.js']
-        : ['python', '/usr/app/user/main.py'],
+        volume: `${rpath}:/usr/app/user`,
+        cmd: LANGUAGE_CMD[language],
+        workingDir: '/usr/app/user',
         memory: 256 * 1024 * 1024,
         cpuShares: 512,
         timeout: Number(process.env.MAX_SCRIPT_EXECUTION_TIME) || 15000,
@@ -95,7 +92,7 @@ export async function run(code: string, language: string, context: any) {
         type: 'error',
         payload: {
           type: 'TimeoutError',
-          message: 'RuntimeError: Script took too long.',
+          message: `RuntimeError: Script took to long to complete.`,
         },
       })
     }

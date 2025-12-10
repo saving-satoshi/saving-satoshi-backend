@@ -32,3 +32,9 @@ export const USER_CODE_FILES = {
   go: ['main.go', 'go.mod'],
   cpp: ['main.cpp'],
 }
+
+// Command and volume-path
+export const LANGUAGE_CMD = {
+  javascript: ['node', 'index.js'],
+  python: ['python', 'main.py']
+}

@@ -23,6 +23,7 @@ interface Context {
    cmd?: string[]   
   memory?: number
   cpuShares?: number
+  workingDir: string
   timeout?: number
 }
 
@@ -189,8 +190,11 @@ async function runContainer(
           Tty: true,
           AttachStdout: true,
           AttachStderr: true,
+          WorkingDir:context.workingDir,
+          Cmd:context.cmd,
           HostConfig: {
-            Binds: [`${userCodePath}:${CONTAINER_WORKING_DIRECTORY}`],
+            Binds: [context.volume],
+            Memory: context.memory,
             AutoRemove: false,
           },
         },
