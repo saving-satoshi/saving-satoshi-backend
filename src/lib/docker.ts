@@ -3,8 +3,7 @@ import Docker from 'dockerode'
 import type { Container } from 'dockerode'
 import logger from './logger'
 import { JobManager } from './jobManager'
-import { BASE_IMAGE_NAMES, CONTAINERS_SCHEDULE, CONTAINERS_TO_KEEP_ON,
-  CONTAINER_WORKING_DIRECTORY } from 'config'
+import { CONTAINERS_SCHEDULE, CONTAINERS_TO_KEEP_ON, } from 'config'
 
 export const docker = new Docker()
 
@@ -19,12 +18,12 @@ const MAX_SCRIPT_EXECUTION_TIME =
 interface Context {
   jobs: JobManager
   socketId: string
-  volume?: string 
-   cmd?: string[]   
+  userCodePath?: string
+  mainFile?: string
+  cmd?: string[]
   memory?: number
   cpuShares?: number
   workingDir: string
-  timeout?: number
 }
 
 interface SendMessage {
@@ -163,6 +162,7 @@ async function runContainer(
   let container: Container | null = null
   let isCleanedUp = false
   let timeoutId: NodeJS.Timeout
+  
 
   try {
     if (!context.jobs.has(context.socketId)) {
@@ -193,7 +193,7 @@ async function runContainer(
           WorkingDir:context.workingDir,
           Cmd:context.cmd,
           HostConfig: {
-            Binds: [context.volume],
+            Binds: [`${userCodePath}:${context.workingDir}/${context.mainFile}`],
             Memory: context.memory,
             AutoRemove: false,
           },

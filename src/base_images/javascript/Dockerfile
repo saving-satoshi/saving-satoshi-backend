@@ -2,7 +2,6 @@ FROM node:20-alpine
 
 WORKDIR /usr/app
 
-COPY package.json package-lock.json* ./
-RUN npm install --production
+COPY ./ /usr/app
 
-CMD ["node", "/usr/app/user/index.js"]
+RUN npm install --production
