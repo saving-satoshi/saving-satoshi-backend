@@ -2,168 +2,54 @@ import path from 'path'
 import fs from 'fs/promises'
 import { v4 as uuid } from 'uuid'
 import Docker from 'lib/docker'
-import { BASE_IMAGE_NAMES, LANG_PATH, SUPPORTED_LANGUAGES } from 'config'
+import { LANG_PATH, LANGUAGE_CONFIG, SupportedLanguage } from 'config'
 import Stream from './stream'
 import logger from './logger'
 
-// Prepares a new directory for user code
-// Returns a unique ID for this new directory
-export async function prepare(code: string, language: string) {
-  const decodedCode = Buffer.from(code, 'base64').toString('utf-8')
+export async function run(code: string, language: string, context: any) {
+  if (!context.jobs) throw new Error('JobManager not initialized')
+
+  const config = LANGUAGE_CONFIG[language as SupportedLanguage]
+  if (!config) throw new Error(`Unsupported language: ${language}`)
+
   const id = uuid()
   const rpath = path.join(LANG_PATH, language, id)
   await fs.mkdir(rpath, { recursive: true })
 
-  switch (language) {
-    case 'python': {
-      await fs.writeFile(path.join(rpath, 'main.py'), decodedCode, 'utf-8')
-      break
-    }
-    case 'javascript': {
-      await fs.writeFile(path.join(rpath, 'index.js'), decodedCode, 'utf-8')
-      break
-    }
-    case 'go': {
-      await fs.writeFile(path.join(rpath, 'main.go'), decodedCode, 'utf-8')
-      await fs.copyFile(
-        path.join(LANG_PATH, language, 'go.mod'),
-        path.join(rpath, 'go.mod')
-      )
-      break
-    }
-    case 'rust': {
-      await fs.mkdir(path.join(rpath, 'src'))
-      await fs.copyFile(
-        path.join(LANG_PATH, language, 'Cargo.toml'),
-        path.join(rpath, 'Cargo.toml')
-      )
-      await fs.writeFile(
-        path.join(rpath, 'src', 'main.rs'),
-        decodedCode,
-        'utf-8'
-      )
-      break
-    }
-    case 'cpp': {
-      await fs.writeFile(path.join(rpath, 'main.cpp'), decodedCode, 'utf-8')
-      break
-    }
-  }
+  const decodedCode = Buffer.from(code, 'base64').toString('utf-8')
+  await fs.writeFile(path.join(rpath, config.mainFile), decodedCode, 'utf-8')
 
-  return id
-}
+  const userCodePath = path.join(rpath, config.mainFile)
 
-export async function run(id: string, language: string, context: any) {
-  if (!context.jobs) {
-    throw new Error('JobManager not initialized')
-  }
-
-  const rpath = path.join(LANG_PATH, language, id)
-  let hasCompilationError = false
-
-  const sourceFiles = {
-    python: ['Dockerfile', 'main.py'],
-    javascript: ['Dockerfile', 'index.js'],
-    rust: ['Dockerfile', 'src/main.rs', 'Cargo.toml'],
-    go: ['Dockerfile', 'main.go', 'go.mod'],
-    cpp: ['Dockerfile', 'main.cpp'],
-  }
-
-  // A method to send messages to the frontend via the websocket
-  const send = async (payload: any): Promise<void> => {
+  const send = async (payload: any) => {
     context.socket.send(
       JSON.stringify({ ...payload, payload: payload.payload })
     )
     return Promise.resolve()
   }
 
-  // stream to use when running the container
   const runStream = new Stream(send, language, (r) => r, 'output')
 
-  // stream to use when building the image
-  const buildStream = new Stream(
-    send,
-    language,
-    (r) => {
-      const { stream } = JSON.parse(r)
-
-      if (!stream || stream.trim() === '') {
-        return null
-      }
-
-      const val = stream.trim()
-
-      switch (language) {
-        case 'rust': {
-          const regex = /error(.*?):/gim
-          if (regex.test(val)) {
-            hasCompilationError = true
-
-            val.split('\n').forEach((l) =>
-              runStream.send({
-                type: 'error',
-                payload: { type: 'LanguageError', message: l },
-              })
-            )
-
-            return null
-          }
-          break
-        }
-        case 'go': {
-          const regex = /error(.*?):/gim
-          if (regex.test(val)) {
-            hasCompilationError = true
-            runStream.send({
-              type: 'error',
-              payload: { type: 'LanguageError', message: val },
-            })
-            return null
-          }
-          break
-        }
-        case 'cpp': {
-          const regex = /error(.*?):/gim
-          if (regex.test(val)) {
-            hasCompilationError = true
-            runStream.send({
-              type: 'error',
-              payload: { type: 'LanguageError', message: val },
-            })
-            console.log(val)
-            return null
-          }
-          break
-        }
-      }
-
-      return `[docker] ${val}`
-    },
-    'debug'
-  )
-
   try {
-    // Tell the front end the container is running
-    send({
-      type: 'status',
-      payload: 'running',
-      channel: 'build',
-    })
-
-    // Start the container!
+    send({ type: 'status', payload: 'running', channel: 'build' })
     logger.debug(`[system] starting container ${id}`)
-    const success = await Docker.runContainer(id,
-      language === SUPPORTED_LANGUAGES.javascript ?
-      BASE_IMAGE_NAMES.javascript : BASE_IMAGE_NAMES.python,
-      rpath,
+
+    const success = await Docker.runContainer(
+      id,
+      config.baseImage,
+      userCodePath,
       send,
       runStream,
       {
         socketId: context.socketId,
         jobs: context.jobs,
+        mainFile: config.mainFile,
+        cmd: config.command,
+        workingDir: '/usr/app',
+        memory: 256 * 1024 * 1024,
+        cpuShares: 512,
       }
     )
-    await sleep(1000)
 
     if (!success) {
       send({
@@ -175,11 +61,7 @@ export async function run(id: string, language: string, context: any) {
       })
     }
 
-    send({
-      type: 'end',
-      payload: success,
-      channel: 'runtime',
-    })
+    send({ type: 'end', payload: success, channel: 'runtime' })
   } catch (ex) {
     logger.error('Container execution failed:', ex)
     await context.jobs.cleanup(context.socketId)
@@ -189,13 +71,7 @@ export async function run(id: string, language: string, context: any) {
       payload: `[system] Error running container: ${ex.message}`,
       channel: 'runtime',
     })
-
-    send({
-      type: 'end',
-      payload: ex.message,
-      channel: 'runtime',
-    })
-
+    send({ type: 'end', payload: ex.message, channel: 'runtime' })
     context.socket.close()
   } finally {
     try {
@@ -205,13 +81,4 @@ export async function run(id: string, language: string, context: any) {
       logger.error('Cleanup failed:', error)
     }
   }
-}
-
-function sleep(delay = 1000): Promise<void> {
-  return new Promise((resolve) => {
-    let timeout = setTimeout(() => {
-      resolve()
-      clearTimeout(timeout)
-    }, delay)
-  })
 }

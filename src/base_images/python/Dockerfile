@@ -7,14 +7,9 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Update packages and install pip
-RUN apt-get update && \
-    pip install --upgrade pip
-
 COPY ./ /usr/app
 
-# Install dependencies
-RUN pip install savingsatoshi_secp256k1py savingsatoshi_bech32py savingsatoshi-bitcoin-rpcpy ecdsa
-
-# Run the application
-CMD ["python", "main.py"]
+# Update packages and install pip
+RUN apt-get update && \
+    pip install --upgrade pip && \
+    pip install savingsatoshi_secp256k1py savingsatoshi_bech32py savingsatoshi-bitcoin-rpcpy ecdsa

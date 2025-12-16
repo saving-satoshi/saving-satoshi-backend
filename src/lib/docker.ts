@@ -3,10 +3,8 @@ import Docker from 'dockerode'
 import type { Container } from 'dockerode'
 import logger from './logger'
 import { JobManager } from './jobManager'
-import { BASE_IMAGE_NAMES, CONTAINERS_SCHEDULE, CONTAINERS_TO_KEEP_ON,
-  CONTAINER_WORKING_DIRECTORY, USER_CODE_FILES } from 'config'
+import { CONTAINERS_SCHEDULE, CONTAINERS_TO_KEEP_ON, } from 'config'
 
-import * as tar from 'tar';
 export const docker = new Docker()
 
 interface DockerStream {
@@ -20,6 +18,12 @@ const MAX_SCRIPT_EXECUTION_TIME =
 interface Context {
   jobs: JobManager
   socketId: string
+  userCodePath?: string
+  mainFile?: string
+  cmd?: string[]
+  memory?: number
+  cpuShares?: number
+  workingDir: string
 }
 
 interface SendMessage {
@@ -158,6 +162,7 @@ async function runContainer(
   let container: Container | null = null
   let isCleanedUp = false
   let timeoutId: NodeJS.Timeout
+  
 
   try {
     if (!context.jobs.has(context.socketId)) {
@@ -185,45 +190,19 @@ async function runContainer(
           Tty: true,
           AttachStdout: true,
           AttachStderr: true,
+          WorkingDir:context.workingDir,
+          Cmd:context.cmd,
+          HostConfig: {
+            Binds: [`${userCodePath}:${context.workingDir}/${context.mainFile}`],
+            Memory: context.memory,
+            AutoRemove: false,
+          },
         },
         (err, container) => {
           if (err) reject(err)
           else resolve(container)
         }
       )
-    })
-
-    // Prepare to copy user code to the container
-    let userCodeFiles: string[] = USER_CODE_FILES.python;
-    if (imageName === BASE_IMAGE_NAMES.javascript) {
-      userCodeFiles = USER_CODE_FILES.javascript
-    }
-
-    // The Docker API only lets you copy files in tar format. First create a tar
-    // with the user code and save it to the same directory that the user code is in
-    const tarName = 'userCode.tar'
-    const tarLocation = path.join(userCodePath, tarName);
-    logger.debug(`Creating a tar with user code in ${tarLocation}`)
-
-    await tar.create({
-        // output file
-        file: path.join(userCodePath, tarName),
-        // change current working directory so it doesn't
-        // copy the entire directory structure
-        cwd: userCodePath
-      },
-      // location of files to tar
-      userCodeFiles
-    ).then(_ => { logger.debug('Created tar with user code') })
-
-    // Copy the tar with the user code to the Docker container
-    container.putArchive(tarLocation, {
-      path: CONTAINER_WORKING_DIRECTORY // where to extract the contents
-    }, err => {
-      if (err) {
-        logger.error('Got error while copying tar')
-        logger.error(err)
-      }
     })
 
     const cleanup = async (): Promise<void> => {
