@@ -1,0 +1,16 @@
+[Unit]
+Description=Saving Satoshi Backend
+After=network.target
+
+[Service]
+Type=simple
+User=satoshi
+ExecStart=/usr/bin/node dist/index.js
+WorkingDirectory={{ app_root }}
+Restart=always
+
+StandardOutput=file:/var/log/saving-satoshi-backend/all.log
+StandardError=file:/var/log/saving-satoshi-backend/all.log
+
+[Install]
+WantedBy=multi-user.target
