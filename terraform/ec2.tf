@@ -1,0 +1,59 @@
+resource "aws_security_group" "app" {
+  name = "${local.namespace}-app"
+}
+
+resource "aws_security_group_rule" "app_allow_outbound" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.app.id
+}
+
+resource "aws_security_group_rule" "app_allow_ssh" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.app.id
+}
+
+resource "aws_security_group_rule" "app_allow_api" {
+  type              = "ingress"
+  from_port         = 8000
+  to_port           = 8000
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.app.id
+}
+
+resource "aws_instance" "app" {
+  ami             = var.ami
+  instance_type   = var.instance_type
+  key_name        = var.key_pair_name
+  security_groups = [aws_security_group.app.name]
+}
+
+# Add an Elastic IP (EIP) so replacing instances will maintain the
+# same IP address. This reduces the need to maintain DNS records
+# when an instance size is change.
+#
+# Create an A record with the DNS provider to point to the EIP.
+resource "aws_eip" "app" {
+  domain = "vpc"
+}
+
+resource "aws_eip_association" "app_instance" {
+  instance_id   = aws_instance.app.id
+  allocation_id = aws_eip.app.id
+}
+
+output "public_dns" {
+  value = aws_instance.app.public_dns
+}
+
+output "ip_address" {
+  value = aws_eip.app.public_ip
+}
