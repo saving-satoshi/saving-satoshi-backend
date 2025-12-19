@@ -13,6 +13,30 @@
         context: "{{ app_root }}/src/base_images/python"
     env_config: .env
 
+  roles:
+    # https://galaxy.ansible.com/ui/standalone/roles/christiangda/amazon_cloudwatch_agent
+    - role: christiangda.amazon_cloudwatch_agent
+      vars:
+        cwa_agent_mode: ec2
+        cwa_aws_region: "{{ aws_region }}"
+        cwa_profile: "AmazonCloudWatchAgent"
+        cwa_conf_json_file_content:
+          agent:
+            metrics_collection_interval: 60
+            region: "{{ aws_region }}"
+            logfile: "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+            debug: false
+          logs:
+            logs_collected:
+              files:
+                collect_list:
+                  - file_path: "/var/log/saving-satoshi-backend/all.log"
+                    log_group_name: saving-satoshi-production-app
+                    log_stream_name: "{instance_id}/all.log"
+                    timezone: UTC
+            log_stream_name: "{instance_id}"
+            force_flush_interval: 15
+
   tasks:
     # Docker Ubuntu installation from: https://docs.docker.com/engine/install/ubuntu
     - name: Add Docker GPG key
@@ -43,6 +67,7 @@
           - nodejs
           - npm
           - fail2ban
+          - collectd
         state: present
 
     - name: Create application user
