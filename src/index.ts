@@ -152,6 +152,7 @@ async function run() {
   app.use(bodyParser.json())
   app.use(cookieParser())
 
+  app.disable('etag')
   app.disable('x-powered-by')
   app.use((_req, res, next) => {
     // browsers should not cache api responses due to how dynamic the data is
@@ -162,7 +163,7 @@ async function run() {
   app.use('/v1', v1)
 
   server.listen(port, () => {
-    console.log(`listening on http://localhost:${port}`)
+    logger.info(`listening on http://localhost:${port}`)
   })
 
   // cleanup handling
