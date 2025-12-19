@@ -9,8 +9,10 @@ ExecStart=/usr/bin/node dist/index.js
 WorkingDirectory={{ app_root }}
 Restart=always
 
-StandardOutput=file:/var/log/saving-satoshi-backend/all.log
-StandardError=file:/var/log/saving-satoshi-backend/all.log
+StandardOutput=journal
+StandardOutput=append:/var/log/saving-satoshi-backend/all.log
+StandardError=journal
+StandardError=append:/var/log/saving-satoshi-backend/all.log
 
 [Install]
 WantedBy=multi-user.target
