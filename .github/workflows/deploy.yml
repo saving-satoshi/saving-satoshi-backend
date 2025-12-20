@@ -1,0 +1,85 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch: {}
+
+env:
+  ANSIBLE_WORKING_DIR: ansible
+  TERRAFORM_WORKING_DIR: terraform
+  TF_VAR_instance_type: ${{ vars.AWS_EC2_INSTANCE_TYPE }}
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        name: Configure AWS Credentials
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # Terraform
+      - uses: hashicorp/setup-terraform@v3
+        name: Setup Terraform
+      - name: Terraform Format
+        run: terraform fmt -check
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      - name: Terraform Format (base)
+        run: terraform fmt -check
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}/base
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.AWS_S3_TERRAFORM_STATE_BUCKET_NAME }}" \
+            -backend-config="key=${{ secrets.AWS_S3_TERRAFORM_STATE_OBJECT_KEY }}" \
+            -backend-config="region=${{ vars.AWS_REGION }}"
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      - name: Terraform Apply
+        run: |
+          terraform apply -auto-approve \
+            -var="key_pair_name=${{ secrets.AWS_EC2_KEY_PAIR_NAME }}"
+          echo "TERRAFORM_APPLY_OUTPUT_IP_ADDRESS=$(terraform output -raw ip_address)" \
+            >> $GITHUB_ENV
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+
+      # Ansible
+      - name: Install Ansible Dependencies
+        run: |
+          sudo apt-get install -y ansible
+          ansible-galaxy install -r ${{ env.ANSIBLE_WORKING_DIR }}/requirements.yaml
+
+          # SSH
+          mkdir ~/.ssh
+          cat <<'EOF' > ~/.ssh/ec2.pem
+          ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          EOF
+          chmod 600 ~/.ssh/ec2.pem
+          ssh-keyscan -H ${{ env.TERRAFORM_APPLY_OUTPUT_IP_ADDRESS }} >> ~/.ssh/known_hosts
+
+          # Environment
+          cat <<'EOF' > ${{ github.workspace }}/.env
+          ${{ secrets.PROD_SECRET_FILE }}
+          EOF
+      - uses: dawidd6/action-ansible-playbook@v5
+        name: Run Ansible Playbook
+        with:
+          playbook: playbook.yaml
+          directory: ${{ env.ANSIBLE_WORKING_DIR }}
+          inventory: |
+            app:
+              hosts:
+                ${{ env.TERRAFORM_APPLY_OUTPUT_IP_ADDRESS }}:
+                  ansible_user: ubuntu
+                  ansible_ssh_private_key_file: "~/.ssh/ec2.pem"
+                  aws_region: ${{ vars.AWS_REGION }}
+                  env_config: ${{ github.workspace }}/.env
