@@ -9,6 +9,7 @@ import {
   ACCESS_TOKEN_COOKIE_SETTINGS,
 } from 'lib/cookie'
 import { RequestWithToken } from 'types/index'
+import logger from 'lib/logger'
 
 const router = Router()
 
@@ -44,7 +45,7 @@ router.post('/register', async (req, res) => {
         },
       })
       .then((progress) => {
-        console.log(JSON.stringify(progress))
+        logger.info(JSON.stringify(progress))
       })
     res.status(200).json({ id: newAccount.id })
   } catch (err) {

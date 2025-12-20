@@ -1,4 +1,5 @@
 import fs from 'fs/promises'
+import logger from './logger'
 
 export function exists(p) {
   return new Promise(async (resolve) => {
@@ -6,7 +7,7 @@ export function exists(p) {
       await fs.access(p)
       resolve(true)
     } catch (ex) {
-      console.log(ex)
+      logger.error('Error while checking for file existence:', ex)
       resolve(false)
     }
   })

@@ -1,5 +1,6 @@
 import { Writable } from 'stream'
 import _ from 'lodash'
+import logger from './logger'
 
 class Stream extends Writable {
   send: any
@@ -107,7 +108,7 @@ class Stream extends Writable {
       await this.sendLines(lines)
       callback()
     } catch (err) {
-      console.error('Error in stream processing:', err)
+      logger.error('Error in stream processing:', err)
       callback(err)
     }
   }
