@@ -3,3 +3,6 @@ node_modules
 dist
 logs
 terraform/.terraform
+terraform/base/.terraform
+terraform/base/*.tfstate
+terraform/base/*.tfstate.backup
