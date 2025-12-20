@@ -10,6 +10,7 @@ import {
 } from 'lib/cookie'
 import { authenticated } from 'middleware'
 import { RequestWithToken } from 'types/index'
+import logger from 'lib/logger'
 
 const router = Router()
 
