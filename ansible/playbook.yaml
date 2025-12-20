@@ -11,7 +11,7 @@
         context: "{{ app_root }}/src/base_images/javascript"
       - name: python-base
         context: "{{ app_root }}/src/base_images/python"
-    env_config: .env
+    env_config: ../.env
 
   roles:
     # https://galaxy.ansible.com/ui/standalone/roles/christiangda/amazon_cloudwatch_agent
@@ -69,6 +69,48 @@
           - fail2ban
           - collectd
         state: present
+
+    - name: Remove default Nginx site
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    #
+    # TODO: Consider checking for DNS resolution or adding record management with the DNS
+    #   provider.
+    #
+
+    - name: Install Certbot
+      community.general.snap:
+        name: certbot
+        classic: true
+
+    # Certbot: https://rolflekang.com/using-certbot-with-ansible
+    - name: Register Certbot
+      ansible.builtin.shell: |
+        certbot -n register --agree-tos --email {{ cert_email | default('admin@savingsatoshi.com', true) }}
+        touch /etc/letsencrypt/.registered
+      args:
+        creates: /etc/letsencrypt/.registered
+
+    - name: Setup cronjob for certificate renewal
+      ansible.builtin.cron:
+        name: certbot-renewal
+        job: "/snap/bin/certbot -q renew"
+        minute: "0"
+        hour: "0"
+
+    - name: Get certificate
+      ansible.builtin.command: "certbot -n --nginx certonly -d {{ hostname }}"
+      args:
+        creates: "/etc/letsencrypt/live/{{ hostname }}"
+      ignore_errors: true
+      register: get_certificate_command_result
+
+    - name: Failure notification to update DNS
+      ansible.builtin.fail:
+        msg: "LetsEncrypt failed to get the certificate. Please update the DNS record to point to the EIP address and re-run Ansible or the pipeline."
+      when: get_certificate_command_result.rc != 0
 
     - name: Create application user
       ansible.builtin.user:
@@ -147,4 +189,10 @@
     - name: Configure Nginx
       ansible.builtin.template:
         src: saving-satoshi-backend.nginx.j2
-        dest: /etc/nginx/sites-enabled/saving-satoshi-backend
+        dest: /etc/nginx/sites-enabled/saving-satoshi-backend.conf
+
+    - name: Restart Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        enabled: true
+        state: restarted

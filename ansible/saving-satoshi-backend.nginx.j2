@@ -1,6 +1,13 @@
 server {
   index index.html index.htm index.nginx-debian.html;
-  server_name api.savingsatoshi.com;
+  server_name {{ hostname }};
+
+  listen [::]:443 ssl ipv6only=on;
+  listen 443 ssl;
+  ssl_certificate /etc/letsencrypt/live/{{ hostname }}/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/{{ hostname }}/privkey.pem;
+  include /etc/letsencrypt/options-ssl-nginx.conf;
+  ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
   location / {
     proxy_pass http://localhost:8000;
@@ -10,4 +17,17 @@ server {
     proxy_set_header Host $host;
     proxy_cache_bypass $http_upgrade;
   }
+}
+
+server {
+  server_name {{ hostname }};
+
+  listen 80 default_server;
+  listen [::]:80 default_server;
+
+  if ($host = {{ hostname }}) {
+    return 301 https://$host$request_uri;
+  }
+
+  return 404;
 }
