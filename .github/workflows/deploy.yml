@@ -1,5 +1,27 @@
-name: Deploy
+# This workflow provisions AWS infrastructure using Terraform and configures the resulting
+# instance using Ansible. It requires the following environment variables and secrets
+# configured in the GitHub repository settings (Settings > Secrets and Variables > Actions):
+#
+# Variables:
+#   - AWS_ROLE_ARN_TO_ASSUME: The Role ARN which is the output `assumed_role_arn` from
+#       running the Terraform baseline infrastructure in `terraform/base`.
+#   - AWS_REGION: The region into which to deploy the application.
+#   - HOSTNAME: The hostname of the application (ex. api.savingsatoshi.com).
+#
+# Secrets:
+#   - AWS_EC2_KEY_PAIR_NAME: The *name* of an existing EC2 key pair to use when provisioning
+#       the EC2 instances. Allows SSH access.
+#   - AWS_S3_TERRAFORM_STATE_BUCKET_NAME: The S3 bucket name which is the output
+#       `terraform_state_bucket_name` from running the Terraform baseline infrastructure in
+#       `terraform/base`.
+#   - AWS_S3_TERRAFORM_STATE_OBJECT_KEY: The name of the *file* which will hold the Terraform
+#       state inside the above bucket.
+#   - EC2_SSH_PRIVATE_KEY: The SSH private key corresponding to the above key pair name which
+#       will be used by Ansible to SSH into the instance and perform its operations.
+#   - PROD_SECRET_FILE: The production configuration for the `.env` file which will be used
+#       for the deployed application.
 
+name: Deploy
 on:
   push:
     branches:
