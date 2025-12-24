@@ -44,9 +44,15 @@ jobs:
     - name: Generate Prisma Client
       run: yarn db:generate
 
+    - name: Run Database Migrations
+      run: yarn db:migrate:production
+      env:
+        DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+
     - name: Run tests with coverage
       run: yarn test
       env:
         NODE_ENV: test
         DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-        WHITELIST: ${{secrets.TEST_WHITELIST}}
+        WHITELIST: ${{ secrets.TEST_WHITELIST }}
+        SECRET: ${{ secrets.TEST_SECRET }}
