@@ -1,11 +1,10 @@
 import Joi from 'joi'
 import { Router } from 'express'
-import { PrismaClient } from '@prisma/client'
+import { prismaClient } from 'lib/prisma'
 import { authenticated } from 'middleware'
 import { formatValidationErrors } from 'lib/utils'
 
 const router = Router()
-const prisma = new PrismaClient()
 
 const schema = Joi.object({
   accountId: Joi.number().required(),
@@ -24,7 +23,7 @@ router.get('/:accountId', authenticated, async (req, res) => {
     const { accountId } = req.params
 
     // Use Prisma to fetch the account by ID
-    const account = await prisma.accounts.findUnique({
+    const account = await prismaClient.accounts.findUnique({
       where: { id: parseInt(accountId) },
     })
 
@@ -45,7 +44,7 @@ router.get('/:accountId', authenticated, async (req, res) => {
       ],
     })
   } finally {
-    await prisma.$disconnect()
+    // await prisma.$disconnect()
   }
 })
 

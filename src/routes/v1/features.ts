@@ -1,10 +1,9 @@
 import Joi from 'joi'
 import { Router } from 'express'
-import { PrismaClient } from '@prisma/client'
 import { formatValidationErrors } from 'lib/utils'
+import { prismaClient } from 'lib/prisma'
 
 const router = Router()
-const prisma = new PrismaClient()
 
 const schema = Joi.object({
   feature_name: Joi.string().required(),
@@ -25,12 +24,12 @@ router.put('/', async (req, res) => {
     const data = req.body
 
     // Use Prisma to check if the feature with the given name already exists
-    const existingFeature = await prisma.features.findFirst({
+    const existingFeature = await prismaClient.features.findFirst({
       where: { feature_name: featureName },
     })
 
     if (existingFeature) {
-      const result = await prisma.features.update({
+      const result = await prismaClient.features.update({
         where: {
           feature_name: featureName,
         },
@@ -40,7 +39,7 @@ router.put('/', async (req, res) => {
     }
 
     // Create the feature using Prisma
-    const result = await prisma.features.create({
+    const result = await prismaClient.features.create({
       data: data,
     })
 
@@ -54,14 +53,14 @@ router.put('/', async (req, res) => {
       ],
     })
   } finally {
-    await prisma.$disconnect()
+    // await prisma.$disconnect()
   }
 })
 
 router.get('/', async (req, res) => {
   try {
     // Use Prisma to fetch all features
-    const features = await prisma.features.findMany()
+    const features = await prismaClient.features.findMany()
 
     res.status(200).json(features)
   } catch (err) {
@@ -73,7 +72,7 @@ router.get('/', async (req, res) => {
       ],
     })
   } finally {
-    await prisma.$disconnect()
+    // await prisma.$disconnect()
   }
 })
 
