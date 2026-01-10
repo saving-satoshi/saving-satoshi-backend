@@ -1,0 +1,198 @@
+---
+- name: Configure application server
+  hosts: app
+  become: true
+
+  vars:
+    app_root: /var/www/saving-satoshi-backend
+    app_version: master
+    docker_base_images:
+      - name: js-base
+        context: "{{ app_root }}/src/base_images/javascript"
+      - name: python-base
+        context: "{{ app_root }}/src/base_images/python"
+    env_config: ../.env
+
+  roles:
+    # https://galaxy.ansible.com/ui/standalone/roles/christiangda/amazon_cloudwatch_agent
+    - role: christiangda.amazon_cloudwatch_agent
+      vars:
+        cwa_agent_mode: ec2
+        cwa_aws_region: "{{ aws_region }}"
+        cwa_profile: "AmazonCloudWatchAgent"
+        cwa_conf_json_file_content:
+          agent:
+            metrics_collection_interval: 60
+            region: "{{ aws_region }}"
+            logfile: "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+            debug: false
+          logs:
+            logs_collected:
+              files:
+                collect_list:
+                  - file_path: "/var/log/saving-satoshi-backend/all.log"
+                    log_group_name: saving-satoshi-production-app
+                    log_stream_name: "{instance_id}/all.log"
+                    timezone: UTC
+            log_stream_name: "{instance_id}"
+            force_flush_interval: 15
+
+  tasks:
+    # Docker Ubuntu installation from: https://docs.docker.com/engine/install/ubuntu
+    - name: Add Docker GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "a+r"
+
+    - name: Add Docker APT repository
+      ansible.builtin.apt_repository:
+        repo: deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+
+    - name: Update APT packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: safe
+
+    - name: Install APT packages
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+          - nginx
+          # TODO: Install NodeJS manually?
+          - nodejs
+          - npm
+          - fail2ban
+          - collectd
+        state: present
+
+    - name: Remove default Nginx site
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    #
+    # TODO: Consider checking for DNS resolution or adding record management with the DNS
+    #   provider.
+    #
+
+    - name: Install Certbot
+      community.general.snap:
+        name: certbot
+        classic: true
+
+    # Certbot: https://rolflekang.com/using-certbot-with-ansible
+    - name: Register Certbot
+      ansible.builtin.shell: |
+        certbot -n register --agree-tos --email {{ cert_email | default('admin@savingsatoshi.com', true) }}
+        touch /etc/letsencrypt/.registered
+      args:
+        creates: /etc/letsencrypt/.registered
+
+    - name: Setup cronjob for certificate renewal
+      ansible.builtin.cron:
+        name: certbot-renewal
+        job: "/snap/bin/certbot -q renew"
+        minute: "0"
+        hour: "0"
+
+    - name: Get certificate
+      ansible.builtin.command: "certbot -n --nginx certonly -d {{ hostname }}"
+      args:
+        creates: "/etc/letsencrypt/live/{{ hostname }}"
+      ignore_errors: true
+      register: get_certificate_command_result
+
+    - name: Failure notification to update DNS
+      ansible.builtin.fail:
+        msg: "LetsEncrypt failed to get the certificate. Please update the DNS record to point to the EIP address and re-run Ansible or the pipeline."
+      when: get_certificate_command_result.rc != 0
+
+    - name: Create application user
+      ansible.builtin.user:
+        name: satoshi
+        system: true
+        create_home: false
+        groups: [ "docker" ]
+        append: true
+      register: user
+
+    - name: Checkout application from Git
+      ansible.builtin.git:
+        repo: https://github.com/saving-satoshi/saving-satoshi-backend.git
+        dest: "{{ app_root }}"
+        version: "{{ app_version }}"
+
+    - name: Install Yarn via NPM
+      community.general.npm:
+        name: yarn
+        global: yes
+
+    - name: Install application packages via Yarn
+      community.general.yarn:
+        path: "{{ app_root }}"
+
+    - name: Ensure dist directory
+      ansible.builtin.file:
+        path: "{{ app_root }}/dist"
+        state: directory
+
+    - name: Copy environment config
+      ansible.builtin.copy:
+        src: "{{ env_config }}"
+        dest: "{{ app_root }}/.env"
+
+    - name: Yarn build
+      ansible.builtin.command: yarn build
+      args:
+        chdir: "{{ app_root }}"
+
+    - name: Run database migrations
+      command: yarn db:migrate:production
+      args:
+        chdir: "{{ app_root }}"
+
+    - name: Ensure dist and logs directory permissions
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ user.name }}"
+        group: "{{ user.group }}"
+        recurse: true
+      loop:
+        - "{{ app_root }}/dist"
+        - "{{ app_root }}/logs"
+        - /var/log/saving-satoshi-backend
+
+    - name: Build Docker base images
+      community.docker.docker_image_build:
+        name: "{{ item.name  }}"
+        path: "{{ item.context }}"
+      loop: "{{ docker_base_images }}"
+
+    - name: Install systemd unit configuration
+      ansible.builtin.template:
+        src: saving-satoshi-backend.service.j2
+        dest: /etc/systemd/system/saving-satoshi-backend.service
+
+    - name: Start saving-satoshi-backend service
+      ansible.builtin.systemd:
+        name: saving-satoshi-backend
+        enabled: true
+        state: restarted
+        daemon_reload: true
+
+    - name: Configure Nginx
+      ansible.builtin.template:
+        src: saving-satoshi-backend.nginx.j2
+        dest: /etc/nginx/sites-enabled/saving-satoshi-backend.conf
+
+    - name: Restart Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        enabled: true
+        state: restarted
