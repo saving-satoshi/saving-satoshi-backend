@@ -1,7 +1,5 @@
 import path from 'path'
 
-export const CONTAINERS_TO_KEEP_ON = ['/saving-satoshi']
-export const CONTAINERS_SCHEDULE = parseInt(process.env.CONTAINER_TERMINATION_SCHEDULE || "10")
 export const CONTAINER_WORKING_DIRECTORY = "/usr/app"
 export const LANG_PATH = path.join(__dirname, 'languages')
 
