@@ -93,6 +93,7 @@ class Stream extends Writable {
         // Send the lines first, then execute onKill
         await this.sendLines(filteredLines)
         if (this.onKill) this.onKill()
+        callback()
         return
       }
 
@@ -106,6 +107,7 @@ class Stream extends Writable {
 
       const lines = chunk.toString().trim().split('\n')
       await this.sendLines(lines)
+      callback()
     } catch (err) {
       console.error('Error in stream processing:', err)
       callback(err)
