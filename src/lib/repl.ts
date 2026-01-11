@@ -2,7 +2,7 @@ import path from 'path'
 import fs from 'fs/promises'
 import { v4 as uuid } from 'uuid'
 import Docker from "dockerode"
-import { LANG_PATH, LANGUAGE_CONFIG, SupportedLanguage } from 'config'
+import { LANG_PATH, LANGUAGE_CONFIG, SupportedLanguage, MAX_SCRIPT_EXECUTION_TIME } from 'config'
 import Stream from './stream'
 import logger from './logger'
 
@@ -47,22 +47,61 @@ export async function run(code: string, language: string, context: any) {
         AutoRemove: true,
       },
     };
-    await new Promise((resolve, reject) => {
-      docker.run(config.baseImage, config.command, process.stdout, options, function(err, data) {
+
+    let timedOut = false
+
+    await new Promise<void>((resolve, reject) => {
+      // Setup a timeout in case user submitted code contains long-running processes.
+      const timeoutId = setTimeout(async () => {
+        timedOut = true
+        logger.warn(`Container ${id} timed out after ${MAX_SCRIPT_EXECUTION_TIME}ms`)
+
+        // Send error back to client.
+        send({
+          type: 'error',
+          payload: {
+            type: 'TimeoutError',
+            message: `RuntimeError: Script took too long to complete.`,
+          },
+        })
+        send({ type: 'end', payload: false, channel: 'runtime' })
+
+        // Stop timed-out container by name - avoids race condition with container event.
+        try {
+          const container = docker.getContainer(id)
+          await container.stop()
+          logger.info(`Container ${id} stopped by timeout handler`)
+        } catch (e) {
+          // Container may not exist yet, already stopped, or already removed
+          logger.debug(`Could not stop container ${id}: ${e.message}`)
+        }
+
+        resolve()
+      }, MAX_SCRIPT_EXECUTION_TIME)
+
+      // Run the container.
+      docker.run(config.baseImage, config.command, runStream, options, (err, data) => {
+        clearTimeout(timeoutId)
+
+        if (timedOut) {
+          return
+        }
+
         let success = true
         if (err) {
           send({
             type: 'error',
             payload: {
-              type: 'TimeoutError',
-              message: `RuntimeError: Script took to long to complete.`,
+              type: 'RuntimeError',
+              message: err.message || 'Script execution failed.',
             },
           })
           success = false
         }
 
         send({ type: 'end', payload: success, channel: 'runtime' })
-      });
+        resolve()
+      })
     });
 
   } catch (ex) {
