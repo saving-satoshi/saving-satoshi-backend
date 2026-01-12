@@ -13,6 +13,7 @@ import Stream from './stream'
 import logger from './logger'
 
 export const docker = new Docker()
+const replDockerLabel = 'saving-satoshi-backend.repl'
 
 export async function run(code: string, language: string, context: any) {
   const config = LANGUAGE_CONFIG[language as SupportedLanguage]
@@ -47,6 +48,9 @@ export async function run(code: string, language: string, context: any) {
       AttachStderr: true,
       StopTimeout: 0, // Stop the container immediately, instead of the 10s grace period.
       WorkingDir: CONTAINER_WORKING_DIRECTORY,
+      Labels: {
+        'managed-by': replDockerLabel,
+      },
       HostConfig: {
         Binds: [`${userCodePath}:/usr/app/${config.mainFile}`],
         Memory: 256 * 1024 * 1024,
@@ -126,5 +130,39 @@ export async function run(code: string, language: string, context: any) {
     } catch (error) {
       logger.error('Cleanup failed:', error)
     }
+  }
+}
+
+// Callback to clean up repl-managed containers by label in the event of server restart.
+async function stopAllReplContainers(): Promise<number> {
+  const containers = await docker.listContainers({
+    filters: { label: [`managed-by=${replDockerLabel}`] },
+  })
+
+  if (containers.length === 0) {
+    return 0
+  }
+
+  logger.info(`Stopping ${containers.length} container(s)...`)
+
+  await Promise.all(
+    containers.map(async (containerInfo) => {
+      try {
+        const container = docker.getContainer(containerInfo.Id)
+        await container.stop()
+        logger.debug(`Stopped container ${containerInfo.Id.slice(0, 12)}`)
+      } catch (e) {
+        logger.error(`Failed to stop container ${containerInfo.Id.slice(0, 12)}: ${e.message}`)
+      }
+    })
+  )
+
+  return containers.length
+}
+
+export async function shutdown() {
+  const stopped = await stopAllReplContainers()
+  if (stopped > 0) {
+    logger.info(`Stopped ${stopped} container(s)`)
   }
 }

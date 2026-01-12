@@ -132,6 +132,24 @@ async function run() {
   server.listen(port, () => {
     console.log(`listening on http://localhost:${port}`)
   })
+
+  // Graceful shutdown handler
+  async function shutdown(signal: string) {
+    logger.info(`${signal} received, shutting down gracefully...`)
+
+    // Stop accepting new connections
+    wss.close()
+    server.close()
+
+    // Shutdown repl processes
+    await repl.shutdown();
+
+    logger.info('Shutdown complete')
+    process.exit(0)
+  }
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  process.on('SIGINT', () => shutdown('SIGINT'))
 }
 
 run()
