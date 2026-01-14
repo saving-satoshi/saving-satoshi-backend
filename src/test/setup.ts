@@ -4,7 +4,7 @@ import * as http from 'http'
 import * as WebSocket from 'ws'
 import routes from 'routes/v1'
 import cors from 'middleware/cors'
-import * as repl from 'lib/repl'
+import { createMessageHandler, sendConnectedMessage } from 'lib/websocket'
 
 export const prisma = new PrismaClient()
 
@@ -25,63 +25,15 @@ export function createTestServerWithWebSocket() {
   const server = http.createServer(app)
   const wss = new WebSocket.Server({ server })
 
+  const handleMessage = createMessageHandler()
+
   wss.on('connection', (ws: WebSocket.WebSocket, request: http.IncomingMessage) => {
     const socketId = getSocketId(request.socket)
 
-    ws.send(
-      JSON.stringify({
-        type: 'connected',
-        payload: 'WebSocket connection established',
-      })
-    )
+    sendConnectedMessage(ws)
 
     ws.on('message', async (message: string) => {
-      try {
-        const data = JSON.parse(message.toString())
-        const { action, payload } = data
-
-        if (!action || !payload) {
-          throw new Error('Invalid message format')
-        }
-
-        switch (action) {
-          case 'repl': {
-            if (!payload.code || !payload.language) {
-              throw new Error('Missing code or language')
-            }
-
-            try {
-              await repl.run(payload.code, payload.language, {
-                socket: ws,
-                socketId,
-              })
-            } catch (ex: any) {
-              ws.send(
-                JSON.stringify({
-                  type: 'error',
-                  payload: {
-                    type: 'SystemError',
-                    message: ex.message || 'Failed to execute code',
-                  },
-                })
-              )
-            }
-            break
-          }
-          default:
-            throw new Error(`Unknown action: ${action}`)
-        }
-      } catch (error: any) {
-        ws.send(
-          JSON.stringify({
-            type: 'error',
-            payload: {
-              type: 'MessageError',
-              message: error.message,
-            },
-          })
-        )
-      }
+      await handleMessage(ws, socketId, message)
     })
   })
 

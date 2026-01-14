@@ -7,6 +7,7 @@ import * as http from 'http'
 import * as WebSocket from 'ws'
 import * as repl from 'lib/repl'
 import logger from 'lib/logger'
+import { createMessageHandler, sendConnectedMessage } from 'lib/websocket'
 
 import { v1 } from './routes'
 
@@ -34,74 +35,22 @@ async function run() {
   const wss = new WebSocket.Server({ server })
 
   // WebSocket connection handler
+  const handleMessage = createMessageHandler(logger)
+
   wss.on(
     'connection',
     (ws: WebSocket.WebSocket, request: http.IncomingMessage) => {
       const socketId = getSocketId(request.socket)
 
       logger.info(`New WebSocket connection: ${socketId}`)
-
-      // Send initial connection success message
-      ws.send(
-        JSON.stringify({
-          type: 'connected',
-          payload: 'WebSocket connection established',
-        })
-      )
+      sendConnectedMessage(ws)
 
       ws.on('close', async () => {
         logger.info(`Connection closed: ${socketId}`)
       })
 
       ws.on('message', async (message: string) => {
-        try {
-          const data = JSON.parse(message.toString())
-          const { action, payload } = data
-
-          if (!action || !payload) {
-            throw new Error('Invalid message format')
-          }
-
-          switch (action) {
-            case 'repl': {
-              if (!payload.code || !payload.language) {
-                throw new Error('Missing code or language')
-              }
-
-              try {
-                await repl.run(payload.code, payload.language, {
-                  socket: ws,
-                  socketId,
-                })
-              } catch (ex) {
-                logger.error('REPL execution failed:', ex)
-                ws.send(
-                  JSON.stringify({
-                    type: 'error',
-                    payload: {
-                      type: 'SystemError',
-                      message: 'Failed to execute code',
-                    },
-                  })
-                )
-              }
-              break
-            }
-            default:
-              throw new Error(`Unknown action: ${action}`)
-          }
-        } catch (error) {
-          logger.error('WebSocket message error:', error)
-          ws.send(
-            JSON.stringify({
-              type: 'error',
-              payload: {
-                type: 'MessageError',
-                message: error.message,
-              },
-            })
-          )
-        }
+        await handleMessage(ws, socketId, message)
       })
     }
   )
