@@ -17,7 +17,7 @@ describe('Progress API', () => {
     authToken = jwt.sign({ id: accountId, private_key: 'test_private_key_123', avatar: 'avatar1' }, process.env.SECRET || 'test-secret')
   })
 
-  describe('PUT /api/v1/progress', () => {
+  describe('PUT /v1/progress', () => {
     it('should save progress with short lesson IDs', async () => {
       const progressState = {
         currentChapter: 1,
@@ -26,7 +26,7 @@ describe('Progress API', () => {
       }
 
       const response = await request(testApp)
-        .put('/api/v1/progress')
+        .put('/v1/progress')
         .set('Authorization', `Bearer ${authToken}`)
         .send({ progress_state: progressState })
         .expect(200)
@@ -43,7 +43,7 @@ describe('Progress API', () => {
       }
 
       const response = await request(testApp)
-        .put('/api/v1/progress')
+        .put('/v1/progress')
         .set('Authorization', `Bearer ${authToken}`)
         .send({ progress_state: progressState })
         .expect(200)
@@ -60,7 +60,7 @@ describe('Progress API', () => {
       }
 
       const response = await request(testApp)
-        .put('/api/v1/progress')
+        .put('/v1/progress')
         .set('Authorization', `Bearer ${authToken}`)
         .send({ progress_state: progressState })
         .expect(200)
@@ -77,7 +77,7 @@ describe('Progress API', () => {
       }
 
       const response = await request(testApp)
-        .put('/api/v1/progress')
+        .put('/v1/progress')
         .set('Authorization', `Bearer ${authToken}`)
         .send({ progress_state: progressState })
         .expect(200)
@@ -110,13 +110,13 @@ describe('Progress API', () => {
       }
 
       await request(testApp)
-        .put('/api/v1/progress')
+        .put('/v1/progress')
         .set('Authorization', `Bearer ${authToken}`)
         .send({ progress_state: progressState })
         .expect(200)
 
       const getResponse = await request(testApp)
-        .get('/api/v1/progress')
+        .get('/v1/progress')
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200)
 
