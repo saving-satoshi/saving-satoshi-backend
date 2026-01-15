@@ -1,0 +1,164 @@
+# =============================================================================
+# REPL CAPACITY TEST - Container Limits
+# =============================================================================
+# Purpose: Determine sustained REPL capacity on t3.large
+# Duration: ~12 minutes (longer phases to observe CPU credit depletion)
+# Use when: EC2 instance sizing, autoscaling configuration, resource planning
+#
+# t3.large specifics:
+#   - 2 vCPU with 30% baseline (~0.6 vCPU sustained)
+#   - 8 GB RAM (memory is not the bottleneck)
+#   - CPU credits deplete under sustained load
+#   - After depletion: performance drops to baseline
+#
+# What it tests:
+#   - WebSocket connections (not HTTP like other profiles)
+#   - Docker container spawn rate and limits
+#   - Memory consumption (each container uses 256MB)
+#   - Container execution timeout handling (30s limit)
+#   - Initial burst performance (with credits)
+#   - Sustained performance (credits depleting)
+#
+# Traffic pattern (conservative for burstable):
+#   - Baseline:     60s with max 5 concurrent (warm up)
+#   - Light:        120s with max 8 concurrent (observe credit usage)
+#   - Moderate:     180s with max 12 concurrent (sustained load)
+#   - Sustained:    180s with max 15 concurrent (credit depletion)
+#   - Peak:         120s with max 20 concurrent (worst-case test)
+#
+# Code executed:
+#   - JavaScript: Hello world, computation loops
+#   - Python: Hello world prints
+#   - Sequential executions (simulates user iterating)
+#
+# SLAs (adjusted for burstable performance):
+#   - p99 response time < 40 seconds (allow for CPU throttling)
+#   - Error rate < 10% (expect some failures under throttling)
+#
+# Differences from other profiles:
+#   - Uses WebSocket engine instead of HTTP
+#   - Tests container orchestration, not API endpoints
+#   - Critical for AWS instance sizing decisions
+#   - Longer phases to observe CPU credit depletion
+#
+# Capacity estimates for t3.large (8GB RAM, 30% CPU baseline):
+#   - Burst:      ~25 concurrent containers (with credits)
+#   - Sustained:  ~10-15 concurrent containers (after credit depletion)
+#   - Critical:   >20 concurrent containers
+# =============================================================================
+
+config:
+  target: "ws://localhost:8001"
+  phases:
+    - name: "Baseline - 5 concurrent (burst mode)"
+      duration: 60
+      arrivalRate: 1
+      maxVusers: 5
+    - name: "Light load - 8 concurrent (credits available)"
+      duration: 120
+      arrivalRate: 1
+      maxVusers: 8
+    - name: "Moderate - 12 concurrent (credits depleting)"
+      duration: 180
+      arrivalRate: 2
+      maxVusers: 12
+    - name: "Sustained - 15 concurrent (near baseline)"
+      duration: 180
+      arrivalRate: 2
+      maxVusers: 15
+    - name: "Peak - 20 concurrent (baseline performance)"
+      duration: 120
+      arrivalRate: 2
+      maxVusers: 20
+
+  plugins:
+    expect: {}
+    metrics-by-endpoint: {}
+
+  # SLA thresholds - adjusted for burstable t3 instances
+  ensure:
+    # p99 < 40s: Allow extra time for CPU throttling under sustained load
+    # Burstable instances may queue requests when throttled
+    p99: 40000
+    # maxErrorRate < 10%: Higher tolerance as throttling may cause timeouts
+    # Monitor actual error rate to find sustainable concurrency
+    maxErrorRate: 10
+
+  engines:
+    ws: {}
+
+scenarios:
+  - name: "JavaScript REPL - Hello World"
+    weight: 4
+    engine: ws
+    flow:
+      - connect: "ws://localhost:8001"
+      - think: 0.5
+      - send:
+          action: "repl"
+          payload:
+            # console.log("Hello from Artillery test");
+            code: "Y29uc29sZS5sb2coIkhlbGxvIGZyb20gQXJ0aWxsZXJ5IHRlc3QiKTs="
+            language: "javascript"
+      - think: 5
+
+  - name: "JavaScript REPL - Computation"
+    weight: 2
+    engine: ws
+    flow:
+      - connect: "ws://localhost:8001"
+      - think: 0.5
+      - send:
+          action: "repl"
+          payload:
+            # let sum = 0; for(let i = 0; i < 1000000; i++) { sum += i; } console.log(sum);
+            code: "bGV0IHN1bSA9IDA7IGZvcihsZXQgaSA9IDA7IGkgPCAxMDAwMDAwOyBpKyspIHsgc3VtICs9IGk7IH0gY29uc29sZS5sb2coc3VtKTs="
+            language: "javascript"
+      - think: 10
+
+  - name: "Python REPL - Hello World"
+    weight: 3
+    engine: ws
+    flow:
+      - connect: "ws://localhost:8001"
+      - think: 0.5
+      - send:
+          action: "repl"
+          payload:
+            # print("Hello from Python via Artillery")
+            code: "cHJpbnQoIkhlbGxvIGZyb20gUHl0aG9uIHZpYSBBcnRpbGxlcnkiKQ=="
+            language: "python"
+      - think: 5
+
+  - name: "Sequential REPL executions"
+    weight: 1
+    engine: ws
+    flow:
+      - connect: "ws://localhost:8001"
+      - think: 0.5
+      - loop:
+          - send:
+              action: "repl"
+              payload:
+                # console.log(Date.now());
+                code: "Y29uc29sZS5sb2coRGF0ZS5ub3coKSk7"
+                language: "javascript"
+          - think: 3
+        count: 3
+
+  - name: "JavaScript REPL - Timeout (30s+)"
+    # Low weight: timeout scenarios are edge cases but important to verify
+    # the system handles them gracefully without blocking other requests
+    weight: 1
+    engine: ws
+    flow:
+      - connect: "ws://localhost:8001"
+      - think: 0.5
+      - send:
+          action: "repl"
+          payload:
+            # while(true) {} - infinite loop that will trigger 30s timeout
+            code: "d2hpbGUodHJ1ZSkge30="
+            language: "javascript"
+      # Wait longer than timeout (30s) + cleanup overhead
+      - think: 35

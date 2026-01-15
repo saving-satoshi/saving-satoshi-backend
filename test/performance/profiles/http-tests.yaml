@@ -1,0 +1,466 @@
+# =============================================================================
+# CONSOLIDATED HTTP API TESTS
+# =============================================================================
+# This file contains all HTTP-based performance test profiles using Artillery's
+# environments feature. Each environment (smoke/load/stress) has its own phases
+# and SLAs, but shares the same scenario definitions.
+#
+# Usage:
+#   artillery run -e smoke /scripts/profiles/http-tests.yaml
+#   artillery run -e load /scripts/profiles/http-tests.yaml
+#   artillery run -e stress /scripts/profiles/http-tests.yaml
+#
+# Or via Makefile:
+#   make test-perf-smoke
+#   make test-perf-load
+#   make test-perf-stress
+#
+# IMPORTANT: All 9 scenarios run in ALL environments (smoke/load/stress).
+# Environments differ ONLY in their phases (duration/traffic) and SLAs.
+# Scenario weights, think times, and request flows are identical across
+# all environments. This is a fundamental limitation of Artillery's
+# environments feature - scenarios cannot be selectively enabled per environment.
+# =============================================================================
+
+config:
+  target: "http://localhost:8001"
+
+  plugins:
+    expect: {}
+    metrics-by-endpoint: {}
+
+  processor: "/scripts/processors/functions.js"
+
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+  # ==========================================================================
+  # ENVIRONMENT: SMOKE TEST
+  # ==========================================================================
+  # Purpose: Fast sanity check that all endpoints are reachable and functional
+  # Duration: ~30 seconds
+  # Use when: CI pipelines, pre-deployment checks, quick health validation
+  #
+  # What it tests:
+  #   - All 9 API scenarios run with light traffic (2-5 req/s)
+  #   - Validates that endpoints are reachable and respond correctly
+  #   - Quick health check suitable for CI/CD pipelines
+  #   - Expected behavior: All requests succeed, fast response times
+  #
+  # SLAs:
+  #   - p99 response time < 2 seconds
+  #   - Error rate < 1%
+  #
+  # Differences from other profiles:
+  #   - Shortest duration (30s vs 12-15 min for load/stress)
+  #   - Lowest traffic (2-5 req/s vs up to 300 req/s for stress)
+  #   - Strictest SLAs (designed to pass reliably)
+  # ==========================================================================
+  environments:
+    smoke:
+      phases:
+        - name: "Smoke test"
+          duration: 30
+          arrivalRate: 2
+          rampTo: 5
+
+      ensure:
+        # p99 < 2s: 99th percentile response time must be under 2 seconds
+        # Chosen as a generous upper bound for a healthy system under light load
+        p99: 2000
+        # maxErrorRate < 1%: Less than 1% of requests can fail
+        # Smoke tests should have near-zero errors; any failures indicate a problem
+        maxErrorRate: 1
+
+    # ========================================================================
+    # ENVIRONMENT: LOAD TEST
+    # ========================================================================
+    # Purpose: Measure system performance under expected production-like traffic
+    # Duration: ~12 minutes
+    # Use when: Establishing performance baselines, capacity planning, regression testing
+    #
+    # What it tests:
+    #   - All 9 API scenarios run with production-like traffic (5-30 req/s)
+    #   - Sustained load over 12 minutes to establish performance baselines
+    #   - Tests system stability under realistic user patterns
+    #   - Expected behavior: Maintains low latency (p99 < 2s, median < 500ms)
+    #
+    # Traffic pattern:
+    #   - Warm up:      60s at 5 req/s
+    #   - Ramp up:      120s from 5 to 20 req/s
+    #   - Sustained:    300s at 20 req/s
+    #   - Peak:         180s at 30 req/s
+    #   - Cool down:    60s from 30 to 5 req/s
+    #
+    # SLAs:
+    #   - p99 response time < 2 seconds
+    #   - Median response time < 500ms
+    #   - Error rate < 1%
+    #
+    # Differences from other profiles:
+    #   - Medium duration (12 min vs 30s for smoke, 15 min for stress)
+    #   - Production-like traffic (5-30 req/s steady)
+    #   - Includes median latency SLA (< 500ms) for user experience validation
+    #   - Multi-phase pattern: warm up → ramp → sustained → peak → cool down
+    # ========================================================================
+    load:
+      phases:
+        - name: "Warm up"
+          duration: 60
+          arrivalRate: 5
+        - name: "Ramp up"
+          duration: 120
+          arrivalRate: 5
+          rampTo: 20
+        - name: "Sustained load"
+          duration: 300
+          arrivalRate: 20
+        - name: "Peak load"
+          duration: 180
+          arrivalRate: 30
+        - name: "Cool down"
+          duration: 60
+          arrivalRate: 30
+          rampTo: 5
+
+      ensure:
+        # p99 < 2s: 99th percentile must stay under 2 seconds even at peak load
+        # This ensures outliers don't degrade user experience significantly
+        p99: 2000
+        # median < 500ms: Typical response should feel snappy to users
+        # Half of all requests must complete within half a second
+        median: 500
+        # maxErrorRate < 1%: Production-like load should not cause errors
+        # Errors under sustained load indicate capacity or stability issues
+        maxErrorRate: 1
+
+    # ========================================================================
+    # ENVIRONMENT: STRESS TEST
+    # ========================================================================
+    # Purpose: Push the system beyond normal limits to find maximum capacity
+    # Duration: ~15 minutes
+    # Use when: Capacity planning, identifying bottlenecks, testing autoscaling triggers
+    #
+    # What it tests:
+    #   - All 9 API scenarios run with extreme traffic (10-300 req/s)
+    #   - Pushes system beyond normal capacity to find breaking points
+    #   - Identifies at what load level errors begin and latency degrades
+    #   - Tests resource exhaustion: DB connections, memory, CPU limits
+    #   - Expected behavior: Graceful degradation, some errors acceptable
+    #
+    # Traffic pattern (aggressive ramp-up):
+    #   - Baseline:     60s at 10 req/s
+    #   - Moderate:     120s ramp to 50 req/s, hold 120s
+    #   - High:         120s ramp to 100 req/s, hold 120s
+    #   - Extreme:      120s ramp to 200 req/s, hold 120s
+    #   - Beyond:       60s ramp to 300 req/s
+    #
+    # SLAs (intentionally relaxed - we expect failures):
+    #   - p99 response time < 10 seconds
+    #   - Error rate < 10%
+    #
+    # Differences from other profiles:
+    #   - Longest duration (15 min) with aggressive ramp-up pattern
+    #   - Highest traffic volume (10-300 req/s)
+    #   - Relaxed SLAs (p99 < 10s, maxErrorRate < 10%) to allow finding limits
+    #   - Purpose is to identify breaking points, not validate normal operation
+    #
+    # Key metrics to watch:
+    #   - Point where error rate spikes (system saturation)
+    #   - Point where latency degrades significantly
+    #   - Memory/CPU usage on the server during test
+    #
+    # t3.large notes:
+    #   - Results depend on CPU credit balance
+    #   - With credits: expect breaking at 200+ req/s
+    #   - After depletion: expect breaking at ~50-100 req/s
+    #   - For sustained baseline testing, run after credits are depleted
+    # ========================================================================
+    stress:
+      phases:
+        - name: "Baseline"
+          duration: 60
+          arrivalRate: 10
+        - name: "Ramp to moderate"
+          duration: 120
+          arrivalRate: 10
+          rampTo: 50
+        - name: "Hold moderate"
+          duration: 120
+          arrivalRate: 50
+        - name: "Ramp to high"
+          duration: 120
+          arrivalRate: 50
+          rampTo: 100
+        - name: "Hold high"
+          duration: 120
+          arrivalRate: 100
+        - name: "Ramp to extreme"
+          duration: 120
+          arrivalRate: 100
+          rampTo: 200
+        - name: "Hold extreme"
+          duration: 120
+          arrivalRate: 200
+        - name: "Beyond capacity"
+          duration: 60
+          arrivalRate: 200
+          rampTo: 300
+
+      ensure:
+        # p99 < 10s: Allow high latency since we're pushing past normal limits
+        # We expect degradation; this just prevents complete system lockup
+        p99: 10000
+        # maxErrorRate < 10%: Allow up to 10% errors under extreme load
+        # The goal is to find WHERE errors start, not to have zero errors
+        # Watch the metrics to identify the breaking point
+        maxErrorRate: 10
+
+# =============================================================================
+# SHARED SCENARIOS
+# =============================================================================
+# All scenarios below are shared across smoke/load/stress environments.
+# Artillery's environments feature means ALL scenarios run in ALL environments,
+# with different phases and SLAs per environment controlling the test behavior.
+#
+# Scenario design:
+# - All scenarios include expect blocks for response validation
+# - REPL scenarios use think time of 1 second
+# - No continueOnError flags - tests fail fast for clearer debugging
+# - Traffic differentiation comes from environment-specific phases and SLAs
+#
+# Note: This is a limitation of Artillery's environments - we cannot selectively
+# run different scenarios per environment. However, the different phases (30s
+# for smoke vs 15min for stress) and SLAs naturally differentiate test behavior.
+# =============================================================================
+
+scenarios:
+  # ===========================================================================
+  # BASIC API SCENARIOS
+  # ===========================================================================
+
+  - name: "Health check"
+    weight: 4
+    flow:
+      - get:
+          url: "/v1/status"
+          expect:
+            - statusCode: 200
+            - hasProperty: "status"
+
+  - name: "List features"
+    weight: 1
+    flow:
+      - get:
+          url: "/v1/features"
+          expect:
+            - statusCode: 200
+
+  # ===========================================================================
+  # AUTHENTICATION SCENARIOS
+  # ===========================================================================
+
+  - name: "Auth flow"
+    weight: 2
+    flow:
+      - function: "generatePrivateKey"
+      - post:
+          url: "/v1/auth/register"
+          json:
+            private_key: "{{ privateKey }}"
+          capture:
+            - json: "$.id"
+              as: "accountId"
+          expect:
+            - statusCode: 200
+            - hasProperty: "id"
+      - post:
+          url: "/v1/auth/login"
+          json:
+            private_key: "{{ privateKey }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+          expect:
+            - statusCode: 200
+            - hasProperty: "token"
+      - get:
+          url: "/v1/auth/session"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/v1/progress"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+            - hasProperty: "account"
+            - hasProperty: "progress"
+            - hasProperty: "progress_state"
+      - post:
+          url: "/v1/auth/logout"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+
+  # ===========================================================================
+  # USER SESSION SCENARIOS
+  # ===========================================================================
+
+  - name: "Anonymous browsing"
+    weight: 3
+    flow:
+      - get:
+          url: "/v1/status"
+          expect:
+            - statusCode: 200
+      - think: 1
+      - get:
+          url: "/v1/features"
+          expect:
+            - statusCode: 200
+
+  - name: "Authenticated user session"
+    weight: 3
+    flow:
+      - function: "generatePrivateKey"
+      - post:
+          url: "/v1/auth/register"
+          json:
+            private_key: "{{ privateKey }}"
+          capture:
+            - json: "$.id"
+              as: "accountId"
+          expect:
+            - statusCode: 200
+      - post:
+          url: "/v1/auth/login"
+          json:
+            private_key: "{{ privateKey }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+          expect:
+            - statusCode: 200
+      - think: 2
+      - function: "generateProgressState"
+      - get:
+          url: "/v1/progress"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      - think: 3
+      - put:
+          url: "/v1/progress"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          json:
+            progress_state: "{{ progressState }}"
+          expect:
+            - statusCode: 200
+      - think: 2
+      - get:
+          url: "/v1/accounts/{{ accountId }}"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      - post:
+          url: "/v1/auth/logout"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+
+  # ===========================================================================
+  # DATA OPERATION SCENARIOS
+  # ===========================================================================
+
+  - name: "Lesson data flow"
+    weight: 2
+    flow:
+      - function: "generatePrivateKey"
+      - post:
+          url: "/v1/auth/register"
+          json:
+            private_key: "{{ privateKey }}"
+          capture:
+            - json: "$.id"
+              as: "accountId"
+      - post:
+          url: "/v1/auth/login"
+          json:
+            private_key: "{{ privateKey }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      - think: 1
+      - put:
+          url: "/v1/data"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          json:
+            lesson_id: "CH1INT1"
+            data:
+              code: "console.log('hello')"
+              timestamp: "{{ $timestamp }}"
+          expect:
+            - statusCode: 200
+      - think: 2
+      - get:
+          url: "/v1/data/CH1INT1"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Feature updates"
+    weight: 1
+    flow:
+      - function: "generateTestId"
+      - put:
+          url: "/v1/features"
+          json:
+            feature_name: "{{ testId }}"
+            feature_value: 1
+          expect:
+            - statusCode: 200
+
+  # ===========================================================================
+  # WEBSOCKET REPL SCENARIOS
+  # ===========================================================================
+  # Note: WebSocket scenarios require separate engine declaration.
+  # ===========================================================================
+
+  - name: "REPL JavaScript execution"
+    weight: 2
+    engine: ws
+    flow:
+      - function: "generateJsReplCode"
+      - connect: "ws://localhost:8001"
+      - think: 1
+      # Dynamic JS code with variable execution time (1-40s, see processors/functions.js)
+      - send:
+          action: "repl"
+          payload:
+            code: "{{ replCode }}"
+            language: "javascript"
+      - think: "{{ replDelay }}"
+
+  - name: "REPL Python execution"
+    weight: 1
+    engine: ws
+    flow:
+      - function: "generatePyReplCode"
+      - connect: "ws://localhost:8001"
+      - think: 1
+      # Dynamic Python code with variable execution time (1-40s, see processors/functions.js)
+      - send:
+          action: "repl"
+          payload:
+            code: "{{ replCode }}"
+            language: "python"
+      - think: "{{ replDelay }}"

@@ -19,7 +19,8 @@
     "db:migrate:production": "npx prisma migrate deploy",
     "test": "cross-env NODE_ENV=test jest --detectOpenHandles",
     "test:watch": "cross-env NODE_ENV=test jest --watch",
-    "test:coverage": "cross-env NODE_ENV=test jest --coverage"
+    "test:coverage": "cross-env NODE_ENV=test jest --coverage",
+    "test:performance": "cross-env NODE_ENV=test PORT=8001 node dist/index.js"
   },
   "_moduleAliases": {
     "lib": "dist/lib",
