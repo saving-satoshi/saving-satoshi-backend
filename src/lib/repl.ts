@@ -6,8 +6,12 @@ import { LANG_PATH, LANGUAGE_CONFIG, SupportedLanguage, MAX_SCRIPT_EXECUTION_TIM
 import Stream from './stream'
 import logger from './logger'
 
+const replContainerLabels = {
+  'com.savingsatoshi.environment': process.env.NODE_ENV,
+  'com.savingsatoshi.managed-by': 'repl',
+}
+
 export const docker = new Docker()
-const replDockerLabel = 'saving-satoshi-backend.repl'
 
 export async function run(code: string, language: string, context: any) {
   const config = LANGUAGE_CONFIG[language as SupportedLanguage]
@@ -42,9 +46,7 @@ export async function run(code: string, language: string, context: any) {
       AttachStderr: true,
       StopTimeout: 0, // Stop the container immediately, instead of the 10s grace period.
       WorkingDir: "/usr/app",
-      Labels: {
-        'managed-by': replDockerLabel,
-      },
+      Labels: replContainerLabels,
       HostConfig: {
         Binds: [`${userCodePath}:/usr/app/${config.mainFile}`],
         Memory: 256 * 1024 * 1024,
@@ -130,7 +132,9 @@ export async function run(code: string, language: string, context: any) {
 // Callback to clean up repl-managed containers by label in the event of server restart.
 async function stopAllReplContainers(): Promise<number> {
   const containers = await docker.listContainers({
-    filters: { label: [`managed-by=${replDockerLabel}`] },
+    filters: { label: Object.entries(replContainerLabels).map(([key, value]) =>
+      `${key}=${value}`
+    )},
   })
 
   if (containers.length === 0) {
