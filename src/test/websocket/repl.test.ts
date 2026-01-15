@@ -117,9 +117,10 @@ describe('WebSocket REPL API', () => {
     })
   })
 
-  // IMPORTANT: This test will fail if the server is running under development mode with
+  // This test was failing if the server was running under development mode with
   // `yarn dev` or `make run`. The filesystem watch will trigger server restarts and kill
-  // the Repl containers. Don't run the tests with the development server running!
+  // the Repl containers. We are now running the test suite with NODE_ENV=test and using a
+  // `environment` container label to segregate REPL containers.
   describe('Timeout Handling', () => {
     it(
       'should timeout for long-running code',

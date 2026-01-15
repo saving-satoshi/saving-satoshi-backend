@@ -8,10 +8,12 @@ const port = process.env.PORT
 
 async function run() {
   const app = createApp()
+  logger.info(`App initialized in ${app.get('env')} mode`)
+
   const instance = createServer(app, { logger })
 
   instance.server.listen(port, () => {
-    console.log(`listening on http://localhost:${port}`)
+    logger.info(`Listening on http://localhost:${port}`)
   })
 
   // Graceful shutdown handler
