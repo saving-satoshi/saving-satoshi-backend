@@ -1,6 +1,6 @@
 import { TestWebSocket } from '../helpers/websocket'
 import { server } from '../setup'
-import { MAX_SCRIPT_EXECUTION_TIME } from '../../config'
+import { MAX_SCRIPT_EXECUTION_TIME } from 'config'
 
 describe('WebSocket REPL API', () => {
   let ws: TestWebSocket
