@@ -17,6 +17,7 @@ const MAX_SCRIPT_EXECUTION_TIME =
 
 interface Context {
   jobs: JobManager
+  requestId: string
   socketId: string
   userCodePath?: string
   mainFile?: string
@@ -165,8 +166,8 @@ async function runContainer(
   
 
   try {
-    if (!context.jobs.has(context.socketId)) {
-      context.jobs.create(context.socketId, id)
+    if (!context.jobs.has(context.requestId)) {
+      context.jobs.create(context.requestId, context.socketId, id)
     }
 
     await send({
@@ -208,7 +209,7 @@ async function runContainer(
     const cleanup = async (): Promise<void> => {
       if (!isCleanedUp && container) {
         isCleanedUp = true
-        context.jobs.setRunning(context.socketId, false)
+        context.jobs.setRunning(context.requestId, false)
 
         try {
           writeStream.end()
@@ -216,17 +217,20 @@ async function runContainer(
         } catch (error) {
           logger.error('Cleanup failed:', error)
         } finally {
-          context.jobs.remove(context.socketId)
+          context.jobs.remove(context.requestId)
         }
       }
     }
 
-    // Set container and cleanup in job manager
-    context.jobs.set(context.socketId, {
+    // Set container and cleanup in job manager, and mark as running immediately
+    // to prevent cleanup from being triggered during the setup window.
+    context.jobs.set(context.requestId, {
       container,
       onKill: cleanup,
       id,
+      socketId: context.socketId,
     })
+    context.jobs.setRunning(context.requestId, true)
 
     const stream = await new Promise<DockerStream>((resolve, reject) => {
       container.attach(
@@ -240,18 +244,19 @@ async function runContainer(
 
     stream.pipe(writeStream)
 
+    // Note: Don't call cleanup() from onKill. The container.wait() callback will
+    // handle cleanup when the container actually exits. Calling cleanup from onKill
+    // races with container.wait() and can remove the container before wait completes,
+    // causing 404 errors.
     writeStream.onKill = async () => {
       if (!isCleanedUp) {
         stream.unpipe(writeStream)
-        await cleanup()
+        // Don't cleanup here - let container.wait() handle it
       }
     }
 
-    // Set running state in the job manager before starting container
-    context.jobs.setRunning(context.socketId, true)
-
     timeoutId = setTimeout(async () => {
-      if (context.jobs.isRunning(context.socketId) && !isCleanedUp) {
+      if (context.jobs.isRunning(context.requestId) && !isCleanedUp) {
         logger.warn(
           `Container execution timed out after ${MAX_SCRIPT_EXECUTION_TIME}ms`
         )
@@ -294,14 +299,14 @@ async function runContainer(
       return true
     } finally {
       clearTimeout(timeoutId)
-      context.jobs.setRunning(context.socketId, false)
+      context.jobs.setRunning(context.requestId, false)
     }
   } catch (error) {
     logger.error('Container execution failed:', error)
     if (container && !isCleanedUp) {
       await cleanupContainer(container, id, send)
     }
-    context.jobs.remove(context.socketId)
+    context.jobs.remove(context.requestId)
     throw error
   }
 }

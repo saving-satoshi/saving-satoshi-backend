@@ -71,8 +71,8 @@ async function run() {
 
       ws.on('close', async () => {
         logger.info(`Connection closed: ${socketId}`)
-        if (jobManager.has(socketId)) {
-          await jobManager.cleanup(socketId)
+        if (jobManager.hasJobsForSocket(socketId)) {
+          await jobManager.cleanupBySocket(socketId)
         }
       })
 

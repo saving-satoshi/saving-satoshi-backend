@@ -41,6 +41,7 @@ export async function run(code: string, language: string, context: any) {
       send,
       runStream,
       {
+        requestId: id,
         socketId: context.socketId,
         jobs: context.jobs,
         mainFile: config.mainFile,
@@ -64,7 +65,7 @@ export async function run(code: string, language: string, context: any) {
     send({ type: 'end', payload: success, channel: 'runtime' })
   } catch (ex) {
     logger.error('Container execution failed:', ex)
-    await context.jobs.cleanup(context.socketId)
+    await context.jobs.cleanup(id)
 
     send({
       type: 'output',
@@ -76,7 +77,7 @@ export async function run(code: string, language: string, context: any) {
   } finally {
     try {
       await fs.rm(rpath, { recursive: true })
-      await context.jobs.cleanup(context.socketId)
+      await context.jobs.cleanup(id)
     } catch (error) {
       logger.error('Cleanup failed:', error)
     }
