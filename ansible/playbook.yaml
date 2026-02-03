@@ -9,7 +9,7 @@
     docker_base_images:
       - name: js-base
         context: "{{ app_root }}/src/base_images/javascript"
-      - name: python-base
+      - name: py-base
         context: "{{ app_root }}/src/base_images/python"
     env_config: ../.env
 
