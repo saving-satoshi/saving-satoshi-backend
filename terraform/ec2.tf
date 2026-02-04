@@ -76,6 +76,10 @@ resource "aws_instance" "app" {
   key_name             = var.key_pair_name
   security_groups      = [aws_security_group.app.name]
   iam_instance_profile = aws_iam_instance_profile.app_instance.name
+
+  tags = {
+    Name = local.namespace
+  }
 }
 
 # Add an Elastic IP (EIP) so replacing instances will maintain the
@@ -85,6 +89,10 @@ resource "aws_instance" "app" {
 # Create an A record with the DNS provider to point to the EIP.
 resource "aws_eip" "app" {
   domain = "vpc"
+
+  tags = {
+    Name = local.namespace
+  }
 }
 
 resource "aws_eip_association" "app_instance" {
