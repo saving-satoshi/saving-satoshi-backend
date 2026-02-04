@@ -36,8 +36,40 @@ env:
   TF_VAR_instance_type: ${{ vars.AWS_EC2_INSTANCE_TYPE }}
 
 jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Javascript REPL image
+        uses: docker/build-push-action@v6
+        with:
+          context: src/base_images/javascript
+          push: false
+          tags: js-base
+
+      - name: Build Python REPL image
+        uses: docker/build-push-action@v6
+        with:
+          context: src/base_images/python
+          push: false
+          tags: py-base
+
+      # TODO: Migrate more of the testing from check-all-tests.yml and make this into a more
+      #   global CI sequential workflow with jobs:
+      #     - check
+      #     - build
+      #     - test
+      #     - deploy
+      #   which only deploys for the `master` branch.
+
   deploy:
     name: Deploy
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       id-token: write
