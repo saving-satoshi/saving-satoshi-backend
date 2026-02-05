@@ -7,13 +7,8 @@ import * as http from 'http'
 import * as WebSocket from 'ws'
 import * as repl from 'lib/repl'
 import logger from 'lib/logger'
-import cron from 'node-cron'
 
 import { v1 } from './routes'
-
-import { JobManager } from './lib/jobManager'
-import { killContainers } from 'lib/docker'
-import { CONTAINERS_SCHEDULE } from 'config'
 
 const port = process.env.PORT
 
@@ -37,21 +32,6 @@ async function run() {
   const app = express()
   const server = http.createServer(app)
   const wss = new WebSocket.Server({ server })
-  const jobManager = new JobManager()
-
-  // Cron Job Wrapper
-  function scheduleRemovalOfContainers(
-    expression: string,
-    fn: () => Promise<void>,
-    options = {}
-  ) {
-    cron.schedule(expression, () => fn().catch((e) => logger.error(e)), options)
-  }
-
-  // Cron job to run every specified minutes
-  scheduleRemovalOfContainers(`*/${CONTAINERS_SCHEDULE} * * * *`, async () => {
-    await killContainers()
-  })
 
   // WebSocket connection handler
   wss.on(
@@ -71,9 +51,6 @@ async function run() {
 
       ws.on('close', async () => {
         logger.info(`Connection closed: ${socketId}`)
-        if (jobManager.has(socketId)) {
-          await jobManager.cleanup(socketId)
-        }
       })
 
       ws.on('message', async (message: string) => {
@@ -94,7 +71,6 @@ async function run() {
               try {
                 await repl.run(payload.code, payload.language, {
                   socket: ws,
-                  jobs: jobManager,
                   socketId,
                 })
               } catch (ex) {
@@ -156,6 +132,24 @@ async function run() {
   server.listen(port, () => {
     console.log(`listening on http://localhost:${port}`)
   })
+
+  // Graceful shutdown handler
+  async function shutdown(signal: string) {
+    logger.info(`${signal} received, shutting down gracefully...`)
+
+    // Stop accepting new connections
+    wss.close()
+    server.close()
+
+    // Shutdown repl processes
+    await repl.shutdown();
+
+    logger.info('Shutdown complete')
+    process.exit(0)
+  }
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  process.on('SIGINT', () => shutdown('SIGINT'))
 }
 
 run()
