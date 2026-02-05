@@ -14,6 +14,7 @@ import { v1 } from './routes'
 import { JobManager } from './lib/jobManager'
 import { killContainers } from 'lib/docker'
 import { CONTAINERS_SCHEDULE } from 'config'
+import { registerShutdownHooks, registerFatalExitHandlers } from 'lib/utils'
 
 const port = process.env.PORT
 
@@ -151,11 +152,23 @@ async function run() {
   app.use(bodyParser.json())
   app.use(cookieParser())
 
+  app.disable('etag')
+  app.disable('x-powered-by')
+  app.use((_req, res, next) => {
+    // browsers should not cache api responses due to how dynamic the data is
+    res.setHeader('Cache-Control', 'no-store')
+    next()
+  })
+
   app.use('/v1', v1)
 
   server.listen(port, () => {
-    console.log(`listening on http://localhost:${port}`)
+    logger.info(`listening on http://localhost:${port}`)
   })
+
+  // cleanup handling
+  registerShutdownHooks(server)
+  registerFatalExitHandlers()
 }
 
 run()

@@ -1,17 +1,16 @@
 import { Router } from 'express'
+import { prismaClient } from 'lib/prisma'
 import { authenticated } from 'middleware'
 import { RequestWithToken } from 'types/index'
-import { PrismaClient } from '@prisma/client'
 
 const router = Router()
-const prisma = new PrismaClient()
 
 router.get('/:lesson_id', authenticated, async (req: RequestWithToken, res) => {
-try {
+  try {
     const lessonId = req.params.lesson_id
     const accountId = req.account.id
 
-    const entry = await prisma.accounts_data.findFirst({
+    const entry = await prismaClient.accounts_data.findFirst({
       where: { lesson_id: lessonId, account: accountId },
     })
 
@@ -28,7 +27,7 @@ try {
       ],
     })
   } finally {
-    await prisma.$disconnect()
+    // await prismaClient.$disconnect()
   }
 })
 
@@ -38,19 +37,19 @@ router.put('/', authenticated, async (req: RequestWithToken, res) => {
     const lessonId: string = req.body.lesson_id
     const data = req.body.data
 
-    const exists = await prisma.accounts_data.count({
+    const exists = await prismaClient.accounts_data.count({
       where: { account: accountId, lesson_id: lessonId },
     })
 
     if (!exists) {
-      const result = await prisma.accounts_data.create({
+      const result = await prismaClient.accounts_data.create({
         data: { account: accountId, lesson_id: lessonId, data: data },
       })
 
       return res.status(200).json(result)
     }
 
-    const result = await prisma.accounts_data.update({
+    const result = await prismaClient.accounts_data.update({
       where: {
         account_lesson_id: { account: accountId, lesson_id: lessonId },
       },
@@ -67,7 +66,7 @@ router.put('/', authenticated, async (req: RequestWithToken, res) => {
       ],
     })
   } finally {
-    await prisma.$disconnect()
+    // await prismaClient.$disconnect()
   }
 })
 
