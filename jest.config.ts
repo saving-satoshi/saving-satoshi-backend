@@ -3,7 +3,7 @@ import type { Config } from '@jest/types';
 const config: Config.InitialOptions = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/test/integration/setup.ts'],
   moduleNameMapper: {
     '^lib/(.*)$': '<rootDir>/src/lib/$1',
     '^middleware$': '<rootDir>/src/middleware',
@@ -21,4 +21,4 @@ const config: Config.InitialOptions = {
   restoreMocks: true,
 };
 
-export default config; 
+export default config;
