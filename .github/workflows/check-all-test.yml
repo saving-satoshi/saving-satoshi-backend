@@ -58,15 +58,19 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: src/base_images/javascript
+        load: true
+        no-cache: true
         push: false
-        tags: js-base
+        tags: js-base:latest
 
     - name: Build Python REPL image
       uses: docker/build-push-action@v6
       with:
         context: src/base_images/python
+        load: true
+        no-cache: true
         push: false
-        tags: py-base
+        tags: py-base:latest
 
     - name: Run tests with coverage
       run: yarn test
