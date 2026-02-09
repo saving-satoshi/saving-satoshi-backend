@@ -1,5 +1,5 @@
 const whitelist = process.env.WHITELIST.split(',').map((a) => a.trim())
-const isProd = process.env.ENV === 'production'
+const isProd = process.env.NODE_ENV === 'production'
 
 export default (req, res, next) => {
   if (isProd && whitelist.indexOf(req.headers.origin) === -1) {
