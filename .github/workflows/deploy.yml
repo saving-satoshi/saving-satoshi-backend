@@ -40,6 +40,7 @@ env:
   TF_VAR_hosted_zone_id: ${{ vars.AWS_ROUTE53_HOSTED_ZONE_ID }}
   TF_VAR_hostname: ${{ vars.HOSTNAME }}
   TF_VAR_instance_type: ${{ vars.AWS_EC2_INSTANCE_TYPE }}
+  TF_VAR_key_pair_name: ${{ secrets.AWS_EC2_KEY_PAIR_NAME }}
 
 jobs:
   test:
@@ -118,8 +119,7 @@ jobs:
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       - name: Terraform Apply
         run: |
-          terraform apply -auto-approve \
-            -var="key_pair_name=${{ secrets.AWS_EC2_KEY_PAIR_NAME }}"
+          terraform apply -auto-approve
           echo "TERRAFORM_APPLY_OUTPUT_IP_ADDRESS=$(terraform output -raw ip_address)" \
             >> $GITHUB_ENV
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
