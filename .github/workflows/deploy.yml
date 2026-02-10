@@ -31,6 +31,7 @@ on:
   push:
     branches:
       - master
+      - develop
   workflow_dispatch: {}
 
 env:
@@ -78,6 +79,12 @@ jobs:
 
   deploy:
     name: Deploy
+    environment: ${{
+      github.ref_name == 'master' && 'production' ||
+      github.ref_name == 'develop' && 'staging' ||
+      'unknown'
+    }}
+    if: ${{ github.ref_name == 'master' || github.ref_name == 'develop' }}
     needs: test
     runs-on: ubuntu-latest
     permissions:
