@@ -12,6 +12,11 @@
 #       the application will be managed. This value should be the output `dns_zone_id` from
 #       running the Terraform baseline infrastructure in `terraform/base`.
 #   - HOSTNAME: The hostname of the application (ex. api.savingsatoshi.com).
+#   - MAX_SCRIPT_EXECUTION_TIME (optional): The application config value in milliseconds for
+#       REPL container timeouts.
+#   - PORT (optional): The application config value for the server listening port.
+#   - WHITELIST (optional): The application config value as a comma-separated list defining
+#       which allowed Origin headers are allowed to access the API.
 #
 # Secrets:
 #   - AWS_EC2_KEY_PAIR_NAME: The *name* of an existing EC2 key pair to use when provisioning
@@ -23,8 +28,8 @@
 #       `terraform/base`.
 #   - AWS_S3_TERRAFORM_STATE_OBJECT_KEY: The name of the *file* which will hold the Terraform
 #       state inside the above bucket.
-#   - PROD_SECRET_FILE: The production configuration for the `.env` file which will be used
-#       for the deployed application.
+#   - DATABASE_URL: The application config value for the connection string to the database.
+#   - SECRET: The application config value for the encryption secret used in authentication.
 
 name: Deploy
 on:
@@ -80,11 +85,11 @@ jobs:
 
   deploy:
     name: Deploy
-    environment: ${{
+    environment: "${{
       github.ref_name == 'master' && 'production' ||
       github.ref_name == 'develop' && 'staging' ||
       'unknown'
-    }}
+    }}"
     if: ${{ github.ref_name == 'master' || github.ref_name == 'develop' }}
     needs: test
     runs-on: ubuntu-latest
@@ -140,7 +145,11 @@ jobs:
 
           # Environment
           cat <<'EOF' > ${{ github.workspace }}/.env
-          ${{ secrets.PROD_SECRET_FILE }}
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          MAX_SCRIPT_EXECUTION_TIME=${{ env.MAX_SCRIPT_EXECUTION_TIME || '10000' }}
+          PORT=${{ env.PORT || '8000' }}
+          SECRET=${{ secrets.SECRET }}
+          WHITELIST=${{ env.WHITELIST || 'https://savingsatoshi.com' }}
           EOF
       - uses: dawidd6/action-ansible-playbook@v5
         name: Run Ansible Playbook
