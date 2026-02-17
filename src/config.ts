@@ -18,3 +18,6 @@ export const LANGUAGE_CONFIG = {
 }
 
 export type SupportedLanguage = keyof typeof LANGUAGE_CONFIG
+
+export const WHITELIST = process.env.WHITELIST?.split(',').map(v => v.trim()) ??
+  ["https://savingsatoshi.com"]

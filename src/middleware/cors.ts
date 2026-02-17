@@ -1,8 +1,9 @@
-const whitelist = process.env.WHITELIST.split(',').map((a) => a.trim())
+import { WHITELIST } from 'config'
+
 const isProd = process.env.NODE_ENV === 'production'
 
 export default (req, res, next) => {
-  if (isProd && whitelist.indexOf(req.headers.origin) === -1) {
+  if (isProd && WHITELIST.indexOf(req.headers.origin) === -1) {
     return res.status(403).json({ error: 'Not in whitelist' })
   }
 
