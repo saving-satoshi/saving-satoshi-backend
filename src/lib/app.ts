@@ -14,6 +14,14 @@ export function createApp(): express.Application {
   app.use(cors)
   app.use(bodyParser.json())
   app.use(cookieParser())
+  app.disable('etag')
+  app.disable('x-powered-by')
+  app.use((_req, res, next) => {
+    // browsers should not cache api responses due to how dynamic the data is
+    // in order to prevent presenting stale data to users.
+    res.setHeader('Cache-Control', 'no-store')
+    next()
+  })
   app.use('/v1', v1)
 
   return app
