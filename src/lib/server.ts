@@ -2,6 +2,7 @@ import * as http from 'http'
 import * as WebSocket from 'ws'
 import express from 'express'
 import * as repl from './repl'
+import { disconnectFromDb } from './prisma'
 
 export interface Logger {
   info: (message: string, ...args: any[]) => void
@@ -121,6 +122,8 @@ export async function shutdownServer(instance: ServerInstance, logger?: Logger):
     client.close()
   })
   wss.close()
+
+  await disconnectFromDb()
 
   // Close HTTP server
   await new Promise<void>((resolve, reject) => {
