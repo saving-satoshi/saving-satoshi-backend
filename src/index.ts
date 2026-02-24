@@ -1,16 +1,8 @@
 require('dotenv').config()
 import 'module-alias/register'
 import logger from 'lib/logger'
-import cron from 'node-cron'
-
-import { v1 } from './routes'
-
-import { JobManager } from './lib/jobManager'
-import { killContainers } from 'lib/docker'
-import { CONTAINERS_SCHEDULE } from 'config'
-import { registerShutdownHooks, registerFatalExitHandlers } from 'lib/utils'
 import { createApp } from 'lib/app'
-import { createServer, shutdownServer, ServerInstance } from 'lib/server'
+import { createServer, shutdownServer } from 'lib/server'
 
 const port = process.env.PORT
 
