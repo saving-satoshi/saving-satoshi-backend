@@ -16,35 +16,27 @@ async function run() {
     logger.info(`Listening on http://localhost:${port}`)
   })
 
-  app.use(bodyParser.json())
-  app.use(cookieParser())
-
-  app.disable('etag')
-  app.disable('x-powered-by')
-  app.use((_req, res, next) => {
-    // browsers should not cache api responses due to how dynamic the data is
-    res.setHeader('Cache-Control', 'no-store')
-    next()
-  })
-
-  app.use('/v1', v1)
-
-  server.listen(port, () => {
-    logger.info(`listening on http://localhost:${port}`)
-  })
-
-  // cleanup handling
-  registerShutdownHooks(server)
-  registerFatalExitHandlers()
   // Graceful shutdown handler
-  async function shutdown(signal: string) {
-    logger.info(`${signal} received, shutting down gracefully...`)
+  async function shutdown(event: string, error?: unknown) {
+    let statusCode = 0
+    if (error) {
+      statusCode = 1
+      logger.error(`${event}:`, error)
+    } else {
+      logger.info(`${event} received, shutting down gracefully...`)
+    }
     await shutdownServer(instance, logger)
-    process.exit(0)
+    process.exit(statusCode)
   }
 
   process.on('SIGTERM', () => shutdown('SIGTERM'))
   process.on('SIGINT', () => shutdown('SIGINT'))
+  process.on('uncaughtException', (error) =>
+    shutdown('uncaughtException', error)
+  )
+  process.on('unhandledRejection', (reason) =>
+    shutdown('unhandledRejection', reason)
+  )
 }
 
 run()
