@@ -9,7 +9,7 @@ class Stream extends Writable {
   channel: string
   errorBuffer: any[]
   hasError: boolean
-  onKill: () => void
+  onKill?: () => void
 
   constructor(send: any, language: string, transformer: any, channel: string) {
     super()
@@ -82,7 +82,8 @@ class Stream extends Writable {
             type: 'error',
             payload: { type: 'RuntimeError', message: error },
           })
-          this.onKill()
+          if (this.onKill) this.onKill()
+          callback()
           return
         }
 
@@ -92,7 +93,8 @@ class Stream extends Writable {
 
         // Send the lines first, then execute onKill
         await this.sendLines(filteredLines)
-        this.onKill()
+        if (this.onKill) this.onKill()
+        callback()
         return
       }
 

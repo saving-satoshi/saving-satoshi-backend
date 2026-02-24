@@ -11,5 +11,4 @@ COPY ./ /usr/app
 
 # Update packages and install pip
 RUN apt-get update && \
-    pip install --upgrade pip && \
     pip install savingsatoshi_secp256k1py savingsatoshi_bech32py savingsatoshi-bitcoin-rpcpy ecdsa
