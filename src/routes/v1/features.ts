@@ -52,8 +52,6 @@ router.put('/', async (req, res) => {
         },
       ],
     })
-  } finally {
-    // await prisma.$disconnect()
   }
 })
 
@@ -71,8 +69,6 @@ router.get('/', async (req, res) => {
         },
       ],
     })
-  } finally {
-    // await prisma.$disconnect()
   }
 })
 

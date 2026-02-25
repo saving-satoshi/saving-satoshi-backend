@@ -43,8 +43,6 @@ router.get('/:accountId', authenticated, async (req, res) => {
         },
       ],
     })
-  } finally {
-    // await prisma.$disconnect()
   }
 })
 

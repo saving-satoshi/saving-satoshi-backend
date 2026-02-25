@@ -56,8 +56,6 @@ router.post('/register', async (req, res) => {
         },
       ],
     })
-  } finally {
-    // await prisma.$disconnect() // Disconnect from the database
   }
 })
 
@@ -98,8 +96,6 @@ router.post('/login', async (req, res) => {
         },
       ],
     })
-  } finally {
-    // await prisma.$disconnect() // Disconnect from the database
   }
 })
 

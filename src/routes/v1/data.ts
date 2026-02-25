@@ -26,8 +26,6 @@ router.get('/:lesson_id', authenticated, async (req: RequestWithToken, res) => {
         },
       ],
     })
-  } finally {
-    // await prismaClient.$disconnect()
   }
 })
 
@@ -65,8 +63,6 @@ router.put('/', authenticated, async (req: RequestWithToken, res) => {
         },
       ],
     })
-  } finally {
-    // await prismaClient.$disconnect()
   }
 })
 

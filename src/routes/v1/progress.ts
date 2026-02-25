@@ -35,8 +35,6 @@ router.get('/', authenticated, async (req: RequestWithToken, res) => {
         },
       ],
     })
-  } finally {
-    // await prisma.$disconnect()
   }
 })
 
@@ -99,8 +97,6 @@ router.put('/', authenticated, async (req: RequestWithToken, res) => {
         },
       ],
     })
-  } finally {
-    // await prisma.$disconnect()
   }
 })
 
