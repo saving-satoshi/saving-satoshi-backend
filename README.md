@@ -91,6 +91,9 @@ curl --location --request PUT '${backend.api}/v1/features/' \
 
 You can find our Postman workspace [here](https://www.postman.com/saving-satoshi/workspace/saving-satoshi/collection/1182590-df829bc3-2d1a-43dc-8048-8480dfd02f75?ctx=documentation).
 
-## Roadmap
+## Deployment Process
 
-TBD
+The entire deployment process is automated using Terraform (`terraform/`) and Ansible (`ansible/`). The corresponding GitHub workflow is `.github/workflows/deploy.yml`.
+
+To resize an instance in production, update the `AWS_EC2_INSTANCE_TYPE` variable (`Settings` > `Secrets and variables` > `Actions` > toggle `Variables` tab) and rerun the Deploy workflow in GitHub Actions.
+
