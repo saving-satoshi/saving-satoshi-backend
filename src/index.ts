@@ -2,6 +2,7 @@ require('dotenv').config()
 import 'module-alias/register'
 import logger from 'lib/logger'
 import { createApp } from 'lib/app'
+import { disconnectFromDb } from 'lib/prisma'
 import { createServer, shutdownServer } from 'lib/server'
 
 const port = process.env.PORT
@@ -17,16 +18,11 @@ async function run() {
   })
 
   // Graceful shutdown handler
-  async function shutdown(event: string, error?: unknown) {
-    let statusCode = 0
-    if (error) {
-      statusCode = 1
-      logger.error(`${event}:`, error)
-    } else {
-      logger.info(`${event} received, shutting down gracefully...`)
-    }
+  async function shutdown(signal: string) {
+    logger.info(`${signal} received, shutting down gracefully...`)
     await shutdownServer(instance, logger)
-    process.exit(statusCode)
+    await disconnectFromDb()
+    process.exit(0)
   }
 
   process.on('SIGTERM', () => shutdown('SIGTERM'))
