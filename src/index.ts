@@ -18,14 +18,8 @@ async function run() {
   })
 
   // Graceful shutdown handler
-  async function shutdown(event: string, error?: unknown) {
-    let statusCode = 0
-    if (error) {
-      statusCode = 1
-      logger.error(`${event}:`, error)
-    } else {
-      logger.info(`${event} received, shutting down gracefully...`)
-    }
+  async function shutdown(signal: string) {
+    logger.info(`${signal} received, shutting down gracefully...`)
     await shutdownServer(instance, logger)
     await prismaClient.$disconnect()
     process.exit(0)
