@@ -1,15 +1,15 @@
-import Joi from 'joi'
 import { Router } from 'express'
+import Joi from 'joi'
+import logger from 'lib/logger'
 import { prismaClient } from 'lib/prisma'
-import { formatValidationErrors } from 'lib/utils'
 import { generate } from 'lib/token'
-import { authenticated } from 'middleware'
+import { formatValidationErrors } from 'lib/utils'
 import {
   ACCESS_TOKEN_COOKIE_NAME,
   ACCESS_TOKEN_COOKIE_SETTINGS,
 } from 'lib/cookie'
+import { authenticated } from 'middleware'
 import { RequestWithToken } from 'types/index'
-import logger from 'lib/logger'
 
 const router = Router()
 
