@@ -110,7 +110,7 @@ class Stream extends Writable {
       await this.sendLines(lines)
       callback()
     } catch (err) {
-      logger.error('Error in stream processing:', err)
+      logger.error(`Error in stream processing: ${err.message}`)
       callback(err)
     }
   }

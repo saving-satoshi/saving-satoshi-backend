@@ -7,7 +7,7 @@ export function exists(p) {
       await fs.access(p)
       resolve(true)
     } catch (ex) {
-      logger.error('Error while checking for file existence:', ex)
+      logger.error(`Error while checking for file existence: ${ex.message}`)
       resolve(false)
     }
   })
