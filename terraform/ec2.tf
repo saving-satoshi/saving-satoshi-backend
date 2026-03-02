@@ -100,6 +100,14 @@ resource "aws_eip_association" "app_instance" {
   allocation_id = aws_eip.app.id
 }
 
+resource "aws_route53_record" "api" {
+  name    = var.hostname
+  records = [aws_eip.app.public_ip]
+  ttl     = 300
+  type    = "A"
+  zone_id = var.hosted_zone_id
+}
+
 output "public_dns" {
   value = aws_instance.app.public_dns
 }

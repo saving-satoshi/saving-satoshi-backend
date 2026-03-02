@@ -4,6 +4,17 @@ variable "ami" {
   description = "ID of the Amazon Machine Image used to create the instance"
 }
 
+variable "hosted_zone_id" {
+  type        = string
+  description = "The ID of the Route53 hosted zone in which to manage DNS records"
+}
+
+variable "hostname" {
+  type        = string
+  default     = "api.savingsatoshi.com"
+  description = "The hostname at which the application will be reached"
+}
+
 variable "instance_type" {
   type        = string
   default     = "t3.large"
