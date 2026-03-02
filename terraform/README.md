@@ -6,6 +6,7 @@ Infrastructure for the Saving Satoshi Backend is hosted with AWS and deployed us
 
 To function via the pipeline, a few boilerplate resources are required in the AWS account, namely:
 - An OIDC provider for GitHub Actions. See the documentation [here](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws).
+- A Route53 DNS hosted zone which manages records by [DNS delegation](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/CreatingNewSubdomain.html).
 - A S3 bucket to hold the Terraform remote state. See the documentation [here](https://developer.hashicorp.com/terraform/language/backend/s3).
 
 To illustrate these resources and simplify things for AWS admins, a "base" Terraform configuration is provided in `terraform/base`. Admins should provision these resources by navigating to that directory on their local machine and running the following with their credentials available:
@@ -21,6 +22,8 @@ terraform plan -var terraform_state_bucket_name=saving-satoshi-production-terraf
 
 terraform apply -var terraform_state_bucket_name=saving-satoshi-production-terraform-state -region=us-west-2
 ```
+
+As well, you can customize the DNS zone name by passing the `dns_zone` variable if you are setting up a development environment.
 
 These values need to be configured into GitHub Actions as variables and secrets. Please see the comment documentation in `.github/workflows/deploy.yml` to complete the setup.
 

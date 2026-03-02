@@ -40,6 +40,18 @@ locals {
   }
 }
 
+variable "dns_zone" {
+  type        = string
+  default     = "api.savingsatoshi.com"
+  description = "The DNS zone for the API managed by AWS Route53"
+}
+
+variable "github_repository_name" {
+  type        = string
+  default     = "saving-satoshi/saving-satoshi-backend"
+  description = "The name of the GitHub repository managing the deployment via OIDC"
+}
+
 variable "region" {
   type        = string
   default     = "us-west-2"
@@ -69,14 +81,27 @@ module "github-oidc-provider" {
   source  = "terraform-module/github-oidc-provider/aws"
   version = "2.2.1"
 
-  repositories = ["saving-satoshi/saving-satoshi-backend"]
+  repositories = [var.github_repository_name]
   role_name    = "${local.namespace}-github-oidc"
 
   # TODO: Define least-privilege access for role policies.
   oidc_role_attach_policies = ["arn:aws:iam::aws:policy/AdministratorAccess"]
 }
 
+# Route53 hosted zone
+resource "aws_route53_zone" "primary" {
+  name = var.dns_zone
+}
+
 # Outputs
+output "dns_name_servers" {
+  value = aws_route53_zone.primary.name_servers
+}
+
+output "dns_zone_id" {
+  value = aws_route53_zone.primary.zone_id
+}
+
 output "assumed_role_arn" {
   value = module.github-oidc-provider.oidc_role
 }
