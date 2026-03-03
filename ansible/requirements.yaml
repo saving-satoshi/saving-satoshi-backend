@@ -1,3 +1,5 @@
 ---
+collections:
+  - name: community.crypto
 roles:
   - name: christiangda.amazon_cloudwatch_agent

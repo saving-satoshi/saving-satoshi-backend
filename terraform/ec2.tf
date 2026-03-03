@@ -65,6 +65,40 @@ resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
+# Grant the instance role the minimum permissions required for the
+# certbot-dns-route53 plugin to complete the ACME DNS-01 challenge.
+# LetsEncrypt only modifies TXT records.
+resource "aws_iam_policy" "certbot_dns_route53" {
+  name        = "${local.namespace}-certbot-dns-route53"
+  description = "Allow Certbot DNS-01 challenge to manage ACME TXT records in Route53"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["route53:ListHostedZones", "route53:GetChange"]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["route53:ChangeResourceRecordSets"]
+        Resource = "arn:aws:route53:::hostedzone/${var.hosted_zone_id}"
+        Condition = {
+          "ForAllValues:StringEquals" = {
+            "route53:ChangeResourceRecordSetsRecordTypes" = ["TXT"]
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "certbot_dns_route53" {
+  role       = aws_iam_role.app_instance.name
+  policy_arn = aws_iam_policy.certbot_dns_route53.arn
+}
+
 resource "aws_iam_instance_profile" "app_instance" {
   name = "${local.namespace}-app-instance-profile"
   role = aws_iam_role.app_instance.name
@@ -83,8 +117,7 @@ resource "aws_instance" "app" {
 }
 
 # Add an Elastic IP (EIP) so replacing instances will maintain the
-# same IP address. This reduces the need to maintain DNS records
-# when an instance size is change.
+# same IP address.
 #
 # Create an A record with the DNS provider to point to the EIP.
 resource "aws_eip" "app" {

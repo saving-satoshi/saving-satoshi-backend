@@ -57,6 +57,7 @@
     - name: Install APT packages
       ansible.builtin.apt:
         name:
+          - certbot
           - docker-ce
           - docker-ce-cli
           - containerd.io
@@ -68,6 +69,7 @@
           - npm
           - fail2ban
           - collectd
+          - python3-certbot-dns-route53
         state: present
 
     - name: Remove default Nginx site
@@ -75,17 +77,15 @@
         path: /etc/nginx/sites-enabled/default
         state: absent
 
-    #
-    # TODO: Consider checking for DNS resolution or adding record management with the DNS
-    #   provider.
-    #
-
-    - name: Install Certbot
-      community.general.snap:
-        name: certbot
-        classic: true
-
     # Certbot: https://rolflekang.com/using-certbot-with-ansible
+    - name: Generate SSL DH parameters
+      community.crypto.openssl_dhparam:
+        path: /etc/letsencrypt/ssl-dhparams.pem
+        size: 2048
+        mode: '644'
+
+    # Use the DNS-01 challenge via the certbot-dns-route53 plugin so that
+    # certificate issuance does not depend on public DNS propagation.
     - name: Register Certbot
       ansible.builtin.shell: |
         certbot -n register --agree-tos --email {{ cert_email | default('admin@savingsatoshi.com', true) }}
@@ -96,20 +96,20 @@
     - name: Setup cronjob for certificate renewal
       ansible.builtin.cron:
         name: certbot-renewal
-        job: "/snap/bin/certbot -q renew"
+        job: "certbot -q renew"
         minute: "0"
         hour: "0"
 
     - name: Get certificate
-      ansible.builtin.command: "certbot -n --nginx certonly -d {{ hostname }}"
+      ansible.builtin.command: "certbot -n --dns-route53 certonly -d {{ hostname }}"
       args:
         creates: "/etc/letsencrypt/live/{{ hostname }}"
       ignore_errors: true
       register: get_certificate_command_result
 
-    - name: Failure notification to update DNS
+    - name: Failure notification
       ansible.builtin.fail:
-        msg: "LetsEncrypt failed to get the certificate. Please update the DNS record to point to the EIP address and re-run Ansible or the pipeline."
+        msg: "LetsEncrypt DNS-01 challenge failed. Ensure the EC2 instance role has the certbot-dns-route53 IAM policy attached and that the hosted zone ID is correct."
       when: get_certificate_command_result.rc != 0
 
     - name: Create application user
