@@ -28,25 +28,21 @@ async function run() {
   process.on('SIGTERM', () => shutdown('SIGTERM'))
   process.on('SIGINT', () => shutdown('SIGINT'))
   process.on('uncaughtException', (error) => {
-    logger.error(
-      `Uncaught Exception: ${
-        error instanceof Error
-          ? error.stack ?? error.message
-          : JSON.stringify(error, null, 2)
-      }`
-    )
+    process.stderr.write(`Uncaught Exception: ${formatError(error)}\n`)
     process.exit(1)
   })
   process.on('unhandledRejection', (reason) => {
-    logger.error(
-      `Unhandled Rejection at: ${
-        reason instanceof Error
-          ? reason.stack ?? reason.message
-          : JSON.stringify(reason, null, 2)
-      }`
-    )
+    process.stderr.write(`Unhandled Rejection at: ${formatError(reason)}\n`)
     process.exit(1)
   })
+}
+function formatError(error: unknown): string {
+  if (error instanceof Error) return error.stack ?? error.message
+  try {
+    return JSON.stringify(error, null, 2)
+  } catch {
+    return String(error)
+  }
 }
 
 run()
