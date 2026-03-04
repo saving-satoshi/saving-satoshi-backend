@@ -2,7 +2,7 @@ require('dotenv').config()
 import 'module-alias/register'
 import logger from 'lib/logger'
 import { createApp } from 'lib/app'
-import { disconnectFromDb } from 'lib/prisma'
+import { prismaClient } from 'lib/prisma'
 import { createServer, shutdownServer } from 'lib/server'
 
 const port = process.env.PORT
@@ -21,7 +21,7 @@ async function run() {
   async function shutdown(signal: string) {
     logger.info(`${signal} received, shutting down gracefully...`)
     await shutdownServer(instance, logger)
-    await disconnectFromDb()
+    await prismaClient.$disconnect()
     process.exit(0)
   }
 
