@@ -1,17 +1,17 @@
-import Joi from 'joi'
 import { Router } from 'express'
-import { PrismaClient } from '@prisma/client'
-import { formatValidationErrors } from 'lib/utils'
+import Joi from 'joi'
+import logger from 'lib/logger'
+import { prismaClient } from 'lib/prisma'
 import { generate } from 'lib/token'
-import { authenticated } from 'middleware'
+import { formatValidationErrors } from 'lib/utils'
 import {
   ACCESS_TOKEN_COOKIE_NAME,
   ACCESS_TOKEN_COOKIE_SETTINGS,
 } from 'lib/cookie'
+import { authenticated } from 'middleware'
 import { RequestWithToken } from 'types/index'
 
 const router = Router()
-const prisma = new PrismaClient()
 
 const schema = Joi.object({
   private_key: Joi.string().min(64).max(64).required(),
@@ -23,7 +23,7 @@ router.post('/register', async (req, res) => {
     const privateKey = req.body.private_key
 
     // Check if an account with the given private_key already exists
-    const existingAccount = await prisma.accounts.findFirst({
+    const existingAccount = await prismaClient.accounts.findFirst({
       where: { private_key: privateKey },
     })
 
@@ -32,19 +32,21 @@ router.post('/register', async (req, res) => {
     }
 
     // Create a new account
-    const newAccount = await prisma.accounts.create({
+    const newAccount = await prismaClient.accounts.create({
       data: req.body,
     })
 
     // Create a progress record for the new account
-    await prisma.accounts_progress.create({
-      data: {
-        accounts: { connect: { id: newAccount.id } },
-        progress: 'CH1INT1',
-      },
-    }).then((progress) => {
-      console.log(JSON.stringify(progress))
-    })
+    await prismaClient.accounts_progress
+      .create({
+        data: {
+          accounts: { connect: { id: newAccount.id } },
+          progress: 'CH1INT1',
+        },
+      })
+      .then((progress) => {
+        logger.info(JSON.stringify(progress))
+      })
     res.status(200).json({ id: newAccount.id })
   } catch (err) {
     res.status(500).json({
@@ -54,8 +56,6 @@ router.post('/register', async (req, res) => {
         },
       ],
     })
-  } finally {
-    await prisma.$disconnect() // Disconnect from the database
   }
 })
 
@@ -71,7 +71,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Check if an account with the given private_key exists
-    const account = await prisma.accounts.findFirst({
+    const account = await prismaClient.accounts.findFirst({
       where: { private_key: req.body.private_key },
     })
 
@@ -96,8 +96,6 @@ router.post('/login', async (req, res) => {
         },
       ],
     })
-  } finally {
-    await prisma.$disconnect() // Disconnect from the database
   }
 })
 
