@@ -249,5 +249,61 @@ describe('WebSocket REPL API', () => {
 
       ws2.close()
     })
+
+    it('should handle many concurrent connections executing code simultaneously', async () => {
+      const CONNECTION_COUNT = 12
+      const connections: TestWebSocket[] = []
+      const program = `
+const secp256k1 = require('@savingsatoshi/secp256k1js')
+const G = secp256k1.G
+function privateKeyToPublicKey(privateKey) {
+  const encodedPrivateKey = BigInt(\`0x\${privateKey}\`)
+  const generatorPoint = G.mul(encodedPrivateKey)
+  return generatorPoint
+}      
+      `;
+
+      // Open multiple websocket connections and consume the 'connected' message.
+      for (let i = 0; i < CONNECTION_COUNT; i++) {
+        const conn = await TestWebSocket.connect(server)
+        const connected = await conn.waitForMessage()
+        expect(connected.type).toBe('connected')
+        connections.push(conn)
+      }
+
+      // Submit code on all connections concurrently.
+      connections.forEach((conn, i) => {
+        const code = Buffer.from(`${program} console.log("Connection ${i}")`).toString('base64')
+        conn.send('repl', { code, language: 'javascript' })
+      })
+
+      // Collect results from all connections in parallel.
+      const allResults = await Promise.all(
+        connections.map((conn) => conn.collectUntilEnd())
+      )
+
+      // Verify each connection received correct output.
+      allResults.forEach((messages, i) => {
+        expect(messages.some((m) =>
+          m.type === 'output' && m.payload.includes(`Connection ${i}`))
+        ).toBe(true)
+
+        // temporary debug logging to show the error msg for failed repl runs
+        if (!messages.some((m) => m.type === 'end' && m.payload === true)) {
+          console.log(
+            `Connection ${i} received error:`,
+            messages.map((m) => JSON.stringify(m.payload)).join(', ')
+          )
+        }
+        expect(messages.some((m) => m.type === 'end' && m.payload === true)).toBe(true)
+
+        // Verify no error messages were received.
+        const errors = messages.filter((m) => m.type === 'error')
+        expect(errors).toHaveLength(0)
+      })
+
+      // Clean up all connections.
+      connections.forEach((conn) => conn.close())
+    }, 60000)
   })
 })

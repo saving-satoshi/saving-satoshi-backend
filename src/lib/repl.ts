@@ -99,6 +99,24 @@ export async function run(code: string, language: string, context: any) {
           return
         }
 
+        // When AutoRemove is enabled (HostConfig.AutoRemove: true), Docker
+        // removes the container as soon as it exits. This can cause problems because
+        // internally, docker.run() calls container.wait() to get the exit status, but if
+        // Docker removes the container before wait() completes, it returns a 404 "no such
+        // container" error. This race condition is most apparent under load execution
+        // (e.g. e2e tests running many challenges in parallel) or when the script
+        // finishes quickly and Docker's cleanup outpaces the wait() API call. It is a
+        // timing issue — not a real failure. The container ran to completion and its
+        // output was already streamed to the client via runStream. A genuine
+        // 404 (container never created) cannot reach this callback because
+        // createContainer would have thrown first, before wait() is ever called. Any
+        // script errors are detected via the Stream class which parses stdout/stderr
+        // for error patterns, so it is safe to assume the container ran to completion.
+        if (err?.statusCode === 404) {
+          send({ type: 'end', payload: true, channel: 'runtime' })
+          return resolve()
+        }
+
         let success = true
         if (err) {
           send({
