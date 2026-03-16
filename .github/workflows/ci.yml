@@ -31,8 +31,12 @@
 #   - DATABASE_URL: The application config value for the connection string to the database.
 #   - SECRET: The application config value for the encryption secret used in authentication.
 
-name: Deploy
+name: CI
 on:
+  pull_request:
+    branches:
+      - master
+      - develop
   push:
     branches:
       - master
@@ -49,11 +53,71 @@ env:
   TF_VAR_key_pair_name: ${{ vars.AWS_EC2_KEY_PAIR_NAME }}
 
 jobs:
-  test:
-    name: Test
+  check:
+    name: Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      # TODO: Select a TypeScript linter and add a check.
+
+      # Terraform checks
+      - uses: hashicorp/setup-terraform@v3
+        name: Setup Terraform
+      - name: Terraform Format
+        run: terraform fmt -check
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      - name: Terraform Format (base)
+        run: terraform fmt -check
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}/base
+
+  build-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    needs: check
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres?schema=public"
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+          cache: 'yarn'
+
+      - name: Install Yarn
+        run: yarn install
+
+      - name: Build application
+        run: yarn build
+
+      - name: Generate Prisma Client
+        run: yarn db:generate
+
+      - name: Run Database Migrations
+        run: yarn db:migrate:production
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -76,13 +140,14 @@ jobs:
           push: false
           tags: py-base:latest
 
-      # TODO: Migrate more of the testing from check-all-tests.yml and make this into a more
-      #   global CI sequential workflow with jobs:
-      #     - check
-      #     - build
-      #     - test
-      #     - deploy
-      #   which only deploys for the `master` branch.
+      - name: Run tests with coverage
+        run: yarn test
+        env:
+          NODE_ENV: test
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          # Shorten timeout to 5 seconds
+          MAX_SCRIPT_EXECUTION_TIME: 5000
+          SECRET: test-secret
 
   deploy:
     name: Deploy
@@ -92,7 +157,7 @@ jobs:
       'unknown'
     }}"
     if: ${{ github.ref_name == 'master' || github.ref_name == 'develop' }}
-    needs: test
+    needs: build-test
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -110,12 +175,6 @@ jobs:
       # Terraform
       - uses: hashicorp/setup-terraform@v3
         name: Setup Terraform
-      - name: Terraform Format
-        run: terraform fmt -check
-        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
-      - name: Terraform Format (base)
-        run: terraform fmt -check
-        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}/base
       - name: Terraform Init
         run: |
           terraform init \
