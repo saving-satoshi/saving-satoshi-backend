@@ -1,0 +1,50 @@
+# This workflow destroys the staging site infrastructure on a schedule, or via manual trigger,
+# to save on costs.
+#
+# It generally reuses the same GitHub Actions variables and secrets defined in the main CI
+# workflow.
+
+name: Destroy Staging
+on:
+  schedule:
+    - cron: '0 4 * * *'  # 11 PM ET (04:00 UTC)
+  workflow_dispatch: {}
+
+env:
+  TERRAFORM_WORKING_DIR: terraform
+  TF_VAR_hosted_zone_id: ${{ vars.AWS_ROUTE53_HOSTED_ZONE_ID }}
+  TF_VAR_hostname: ${{ vars.HOSTNAME }}
+  TF_VAR_instance_type: ${{ vars.AWS_EC2_INSTANCE_TYPE }}
+  TF_VAR_key_pair_name: ${{ vars.AWS_EC2_KEY_PAIR_NAME }}
+
+jobs:
+  destroy:
+    name: Destroy
+    environment: staging
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        name: Configure AWS Credentials
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # Terraform
+      - uses: hashicorp/setup-terraform@v3
+        name: Setup Terraform
+      - name: Terraform Destroy
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.AWS_S3_TERRAFORM_STATE_BUCKET_NAME }}" \
+            -backend-config="key=${{ secrets.AWS_S3_TERRAFORM_STATE_OBJECT_KEY }}" \
+            -backend-config="region=${{ vars.AWS_REGION }}"
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}

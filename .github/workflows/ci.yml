@@ -5,32 +5,43 @@
 # Variables:
 #   - AWS_EC2_INSTANCE_TYPE (optional): The type of the AWS instance to provision (ex.
 #       t3.large). Omitting this value should fallback to the Terraform variable default.
+#   - AWS_EC2_KEY_PAIR_NAME: The *name* of an existing EC2 key pair to use when provisioning
+#       the EC2 instances. Allows SSH access.
 #   - AWS_ROLE_ARN_TO_ASSUME: The Role ARN which is the output `assumed_role_arn` from
 #       running the Terraform baseline infrastructure in `terraform/base`.
 #   - AWS_REGION: The region into which to deploy the application.
 #   - AWS_ROUTE53_HOSTED_ZONE_ID: The ID of the hosted zone under which the DNS records for
 #       the application will be managed. This value should be the output `dns_zone_id` from
 #       running the Terraform baseline infrastructure in `terraform/base`.
-#   - HOSTNAME: The hostname of the application (ex. api.savingsatoshi.com).
-#
-# Secrets:
-#   - AWS_EC2_KEY_PAIR_NAME: The *name* of an existing EC2 key pair to use when provisioning
-#       the EC2 instances. Allows SSH access.
 #   - AWS_S3_TERRAFORM_STATE_BUCKET_NAME: The S3 bucket name which is the output
 #       `terraform_state_bucket_name` from running the Terraform baseline infrastructure in
 #       `terraform/base`.
 #   - AWS_S3_TERRAFORM_STATE_OBJECT_KEY: The name of the *file* which will hold the Terraform
 #       state inside the above bucket.
-#   - EC2_SSH_PRIVATE_KEY: The SSH private key corresponding to the above key pair name which
-#       will be used by Ansible to SSH into the instance and perform its operations.
-#   - PROD_SECRET_FILE: The production configuration for the `.env` file which will be used
-#       for the deployed application.
+#   - HOSTNAME: The hostname of the application (ex. api.savingsatoshi.com).
+#   - MAX_SCRIPT_EXECUTION_TIME (optional): The application config value in milliseconds for
+#       REPL container timeouts.
+#   - PORT (optional): The application config value for the server listening port.
+#   - WHITELIST (optional): The application config value as a comma-separated list defining
+#       which allowed Origin headers are allowed to access the API.
+#
+# Secrets:
+#   - AWS_EC2_SSH_PRIVATE_KEY: The SSH private key corresponding to the above key pair name
+#       which will be used by Ansible to SSH into the instance and perform its operations.
+#   - DATABASE_URL: The application config value for the connection string to the database.
+#   - SECRET: The application config value for the encryption secret used in authentication.
 
-name: Deploy
+name: CI
 on:
+  pull_request:
+    branches:
+      - master
+      - develop
   push:
     branches:
       - master
+      - develop
+      - feature/staging-environment
   workflow_dispatch: {}
 
 env:
@@ -39,13 +50,74 @@ env:
   TF_VAR_hosted_zone_id: ${{ vars.AWS_ROUTE53_HOSTED_ZONE_ID }}
   TF_VAR_hostname: ${{ vars.HOSTNAME }}
   TF_VAR_instance_type: ${{ vars.AWS_EC2_INSTANCE_TYPE }}
+  TF_VAR_key_pair_name: ${{ vars.AWS_EC2_KEY_PAIR_NAME }}
 
 jobs:
-  test:
-    name: Test
+  check:
+    name: Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      # TODO: Select a TypeScript linter and add a check.
+
+      # Terraform checks
+      - uses: hashicorp/setup-terraform@v3
+        name: Setup Terraform
+      - name: Terraform Format
+        run: terraform fmt -check
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      - name: Terraform Format (base)
+        run: terraform fmt -check
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}/base
+
+  build-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    needs: check
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres?schema=public"
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+          cache: 'yarn'
+
+      - name: Install Yarn
+        run: yarn install
+
+      - name: Build application
+        run: yarn build
+
+      - name: Generate Prisma Client
+        run: yarn db:generate
+
+      - name: Run Database Migrations
+        run: yarn db:migrate:production
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -68,17 +140,24 @@ jobs:
           push: false
           tags: py-base:latest
 
-      # TODO: Migrate more of the testing from check-all-tests.yml and make this into a more
-      #   global CI sequential workflow with jobs:
-      #     - check
-      #     - build
-      #     - test
-      #     - deploy
-      #   which only deploys for the `master` branch.
+      - name: Run tests with coverage
+        run: yarn test
+        env:
+          NODE_ENV: test
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          # Shorten timeout to 5 seconds
+          MAX_SCRIPT_EXECUTION_TIME: 5000
+          SECRET: test-secret
 
   deploy:
     name: Deploy
-    needs: test
+    environment: "${{
+      github.ref_name == 'master' && 'production' ||
+      github.ref_name == 'develop' && 'staging' ||
+      'unknown'
+    }}"
+    if: ${{ github.ref_name == 'master' || github.ref_name == 'develop' }}
+    needs: build-test
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -96,23 +175,16 @@ jobs:
       # Terraform
       - uses: hashicorp/setup-terraform@v3
         name: Setup Terraform
-      - name: Terraform Format
-        run: terraform fmt -check
-        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
-      - name: Terraform Format (base)
-        run: terraform fmt -check
-        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}/base
       - name: Terraform Init
         run: |
           terraform init \
-            -backend-config="bucket=${{ secrets.AWS_S3_TERRAFORM_STATE_BUCKET_NAME }}" \
-            -backend-config="key=${{ secrets.AWS_S3_TERRAFORM_STATE_OBJECT_KEY }}" \
+            -backend-config="bucket=${{ vars.AWS_S3_TERRAFORM_STATE_BUCKET_NAME }}" \
+            -backend-config="key=${{ vars.AWS_S3_TERRAFORM_STATE_OBJECT_KEY }}" \
             -backend-config="region=${{ vars.AWS_REGION }}"
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       - name: Terraform Apply
         run: |
-          terraform apply -auto-approve \
-            -var="key_pair_name=${{ secrets.AWS_EC2_KEY_PAIR_NAME }}"
+          terraform apply -auto-approve
           echo "TERRAFORM_APPLY_OUTPUT_IP_ADDRESS=$(terraform output -raw ip_address)" \
             >> $GITHUB_ENV
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
@@ -126,14 +198,18 @@ jobs:
           # SSH
           mkdir ~/.ssh
           cat <<'EOF' > ~/.ssh/ec2.pem
-          ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY }}
           EOF
           chmod 600 ~/.ssh/ec2.pem
           ssh-keyscan -H ${{ env.TERRAFORM_APPLY_OUTPUT_IP_ADDRESS }} >> ~/.ssh/known_hosts
 
           # Environment
           cat <<'EOF' > ${{ github.workspace }}/.env
-          ${{ secrets.PROD_SECRET_FILE }}
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          MAX_SCRIPT_EXECUTION_TIME=${{ env.MAX_SCRIPT_EXECUTION_TIME || '10000' }}
+          PORT=${{ env.PORT || '8000' }}
+          SECRET=${{ secrets.SECRET }}
+          WHITELIST=${{ env.WHITELIST || 'https://savingsatoshi.com' }}
           EOF
       - uses: dawidd6/action-ansible-playbook@v5
         name: Run Ansible Playbook
