@@ -28,7 +28,9 @@ router.get('/:accountId', authenticated, async (req, res) => {
     })
 
     if (!account) {
-      throw new Error('Account not found.')
+      return res.status(404).json({
+        errors: [{ message: 'Account not found.' }],
+      })
     }
 
     // Remove sensitive data before sending the response

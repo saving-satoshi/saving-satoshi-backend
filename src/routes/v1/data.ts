@@ -14,6 +14,12 @@ router.get('/:lesson_id', authenticated, async (req: RequestWithToken, res) => {
       where: { lesson_id: lessonId, account: accountId },
     })
 
+    if (!entry) {
+      return res.status(404).json({
+        errors: [{ message: 'Lesson not found.' }],
+      })
+    }
+
     res.status(200).json({
       lesson_id: entry.lesson_id,
       data: entry.data,
