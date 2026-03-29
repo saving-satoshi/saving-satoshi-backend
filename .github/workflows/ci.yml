@@ -18,6 +18,7 @@
 #       `terraform/base`.
 #   - AWS_S3_TERRAFORM_STATE_OBJECT_KEY: The name of the *file* which will hold the Terraform
 #       state inside the above bucket.
+#   - ENVIRONMENT (optional): The name of the environment for namespacing purposes.
 #   - HOSTNAME: The hostname of the application (ex. api.savingsatoshi.com).
 #   - MAX_SCRIPT_EXECUTION_TIME (optional): The application config value in milliseconds for
 #       REPL container timeouts.
@@ -46,6 +47,7 @@ on:
 env:
   ANSIBLE_WORKING_DIR: ansible
   TERRAFORM_WORKING_DIR: terraform
+  TF_VAR_environment: ${{ vars.ENVIRONMENT }}
   TF_VAR_hosted_zone_id: ${{ vars.AWS_ROUTE53_HOSTED_ZONE_ID }}
   TF_VAR_hostname: ${{ vars.HOSTNAME }}
   TF_VAR_instance_type: ${{ vars.AWS_EC2_INSTANCE_TYPE }}

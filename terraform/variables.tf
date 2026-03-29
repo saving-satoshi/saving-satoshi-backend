@@ -4,6 +4,12 @@ variable "ami" {
   description = "ID of the Amazon Machine Image used to create the instance"
 }
 
+variable "environment" {
+  type        = string
+  default     = "production"
+  description = "The name of the environment for namespacing purposes"
+}
+
 variable "hosted_zone_id" {
   type        = string
   description = "The ID of the Route53 hosted zone in which to manage DNS records"

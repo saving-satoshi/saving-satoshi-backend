@@ -1,9 +1,9 @@
 locals {
   application = "saving-satoshi"
-  environment = "production"
+  environment = var.environment
   namespace   = "${local.application}-${local.environment}"
   default_tags = {
     Application = "saving-satoshi"
-    Environment = "production"
+    Environment = local.environment
   }
 }
