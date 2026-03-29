@@ -5,7 +5,14 @@ You can find our front-end code repository [here](https://github.com/saving-sato
 
 ## Contributing
 
-TBD
+The contributor branching model is loosely inspired by [git-flow](https://nvie.com/posts/a-successful-git-branching-model). The main branch of this repository is `develop`, which contains the latest features and is used to spin up an ephemeral staging site, destroyed each day.
+
+Workflow:
+1. Developer creates new features in a "feature" branch in their forked repository and opens a pull request against `develop`.
+1. Pull request is merged into `develop` by a maintainer and the staging site is instatiated for testing.
+1. When the maintainers are ready to release a new set of features, the `develop` branch is merged into `master`, which deploys the production site.
+
+The staging site can also be spun-up and destroyed manually by running the CI workflow on the `develop` branch from the GitHub Actions admin.
 
 ## Local development setup
 
