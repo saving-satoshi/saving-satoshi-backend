@@ -61,7 +61,7 @@ docker build -t py-base .
 4. Run `make init` to setup the database, run migration, copy necessary files and run the project for the first time.
 5. Optional: Run the tests with `yarn test`
 5. Run `make run` to start the server.
-6. To stop the server, run `ctlr C`, then run `make stop-deps` to stop the database.
+6. To stop the server, press `Ctrl + C` while in the terminal where the server is showing logs or running, then run `make stop-deps` to stop the database.
 
 ## Local development: running tests
 To execute the tests you need to have a postgres database running. Running the database in docker is highly recommended so the tests don't have access to other, unrelated data that may be in a local instance of postgres. If you followed the steps above, the dockerized postgres instance will already be set up. Simply run `make start-deps` to bring the database up.
