@@ -11,6 +11,7 @@ on:
   workflow_dispatch: {}
 
 env:
+  APP_NAME: saving-satoshi
   TERRAFORM_WORKING_DIR: terraform
   TF_VAR_hosted_zone_id: ${{ vars.AWS_ROUTE53_HOSTED_ZONE_ID }}
   TF_VAR_hostname: ${{ vars.HOSTNAME }}
@@ -34,6 +35,29 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
+
+      # Deregister stale staging AMIs and delete their snapshots (keep last 1)
+      - name: Deregister stale staging AMIs
+        run: |
+          KEEP=1
+
+          AMI_IDS=$(aws ec2 describe-images \
+            --owners self \
+            --filters \
+              "Name=tag:Application,Values=${{ env.APP_NAME }}" \
+              "Name=tag:Environment,Values=staging" \
+            --query "reverse(sort_by(Images, &CreationDate))[$KEEP:].ImageId" \
+            --output text)
+
+          if [ -z "$AMI_IDS" ]; then
+            echo "No stale staging AMIs to clean up."
+            exit 0
+          fi
+
+          for AMI_ID in $AMI_IDS; do
+            echo "Deregistering AMI and snapshots: $AMI_ID"
+            aws ec2 deregister-image --image-id "$AMI_ID" --delete-associated-snapshots
+          done
 
       # Terraform
       - uses: hashicorp/setup-terraform@v3
