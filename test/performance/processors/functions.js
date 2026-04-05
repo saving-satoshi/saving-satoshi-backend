@@ -91,25 +91,55 @@ function getWeightedDelay() {
 
 /**
  * Generate JavaScript REPL code with variable execution time.
+ * Runs secp256k1 point multiplications (G.mul) for the target duration, mirroring
+ * the actual CPU work saving-satoshi users perform in production.
  * Sets context.vars.replCode (base64) and context.vars.replDelay (seconds to wait)
  */
 function generateJsReplCode(context, ee, next) {
   const delayMs = Math.floor(getWeightedDelay());
-  const code = `const d=${delayMs},s=Date.now();while(Date.now()-s<d){}console.log('Done:'+d+'ms');`;
-  context.vars.replCode = Buffer.from(code).toString('base64');
+  const privateKey = crypto.randomBytes(32).toString('hex');
+  const lines = [
+    `const {G} = require('@savingsatoshi/secp256k1js');`,
+    `const key = BigInt('0x${privateKey}');`,
+    `const start = Date.now();`,
+    `const target = ${delayMs};`,
+    `let i = 0n;`,
+    `while (Date.now() - start < target) { G.mul(key + i++); }`,
+    `console.log('Done: ' + i + ' ops in ' + (Date.now() - start) + 'ms');`,
+  ];
+  context.vars.replCode = Buffer.from(lines.join('\n')).toString('base64');
   context.vars.replDelay = Math.ceil(delayMs / 1000) + 2; // execution time + buffer
   return next();
 }
 
 /**
  * Generate Python REPL code with variable execution time.
+ * Runs secp256k1 point multiplications (scalar * G) for the target duration, mirroring
+ * the actual CPU work saving-satoshi users perform in production.
  * Sets context.vars.replCode (base64) and context.vars.replDelay (seconds to wait)
+ *
+ * Import note: the package installs as 'savingsatoshi-secp256k1py' but the Python
+ * module namespace is 'secp256k1py', so the import is 'from secp256k1py.secp256k1 import G'.
+ * Scalar multiplication uses the __rmul__ operator: (key + i) * G
  */
 function generatePyReplCode(context, ee, next) {
   const delayMs = Math.floor(getWeightedDelay());
   const delaySec = (delayMs / 1000).toFixed(2);
-  const code = `import time;d=${delaySec};s=time.time()\nwhile time.time()-s<d:pass\nprint(f'Done:{d}s')`;
-  context.vars.replCode = Buffer.from(code).toString('base64');
+  // Generate key as a decimal integer for Python (no BigInt literal syntax)
+  const keyInt = BigInt('0x' + crypto.randomBytes(32).toString('hex')).toString();
+  const lines = [
+    'from secp256k1py.secp256k1 import G',
+    'import time',
+    `key = ${keyInt}`,
+    'start = time.time()',
+    `target = ${delaySec}`,
+    'i = 0',
+    'while time.time() - start < target:',
+    '    (key + i) * G',
+    '    i += 1',
+    "print(f'Done: {i} ops in {time.time() - start:.2f}s')",
+  ];
+  context.vars.replCode = Buffer.from(lines.join('\n')).toString('base64');
   context.vars.replDelay = Math.ceil(delayMs / 1000) + 2; // execution time + buffer
   return next();
 }

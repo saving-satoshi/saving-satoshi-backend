@@ -118,8 +118,11 @@ scenarios:
       - send:
           action: "repl"
           payload:
-            # let sum = 0; for(let i = 0; i < 1000000; i++) { sum += i; } console.log(sum);
-            code: "bGV0IHN1bSA9IDA7IGZvcihsZXQgaSA9IDA7IGkgPCAxMDAwMDAwOyBpKyspIHsgc3VtICs9IGk7IH0gY29uc29sZS5sb2coc3VtKTs="
+            # const {G} = require('@savingsatoshi/secp256k1js');
+            # const key = BigInt('0xdeadbeef0123456789abcdef0123456789abcdef0123456789abcdef01234567');
+            # for (let i = 0n; i < 10n; i++) { G.mul(key + i); }
+            # console.log('Done');
+            code: "Y29uc3Qge0d9ID0gcmVxdWlyZSgnQHNhdmluZ3NhdG9zaGkvc2VjcDI1NmsxanMnKTsKY29uc3Qga2V5ID0gQmlnSW50KCcweGRlYWRiZWVmMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmMDEyMzQ1NjcnKTsKZm9yIChsZXQgaSA9IDBuOyBpIDwgMTBuOyBpKyspIHsgRy5tdWwoa2V5ICsgaSk7IH0KY29uc29sZS5sb2coJ0RvbmUnKTs="
             language: "javascript"
       - think: 10
 
