@@ -87,15 +87,15 @@ config:
     #   - Expected behavior: Maintains low latency (p99 < 2s, median < 500ms)
     #
     # Traffic pattern:
-    #   - Warm up:      60s at 5 req/s
-    #   - Ramp up:      120s from 5 to 20 req/s
-    #   - Sustained:    300s at 20 req/s
-    #   - Peak:         180s at 30 req/s
-    #   - Cool down:    60s from 30 to 5 req/s
+    #   - Warm up:      60s at 2 req/s
+    #   - Ramp up:      120s from 2 to 8 req/s
+    #   - Sustained:    300s at 8 req/s
+    #   - Peak:         180s at 12 req/s
+    #   - Cool down:    60s from 12 to 2 req/s
     #
     # SLAs:
     #   - p99 response time < 2 seconds
-    #   - Median response time < 500ms
+    #   - Median response time < 750ms
     #   - Error rate < 1%
     #
     # Differences from other profiles:
@@ -108,29 +108,31 @@ config:
       phases:
         - name: "Warm up"
           duration: 60
-          arrivalRate: 5
+          arrivalRate: 2
         - name: "Ramp up"
           duration: 120
-          arrivalRate: 5
-          rampTo: 20
+          arrivalRate: 2
+          rampTo: 8
         - name: "Sustained load"
           duration: 300
-          arrivalRate: 20
+          arrivalRate: 8
         - name: "Peak load"
           duration: 180
-          arrivalRate: 30
+          arrivalRate: 12
         - name: "Cool down"
           duration: 60
-          arrivalRate: 30
-          rampTo: 5
+          arrivalRate: 12
+          rampTo: 2
 
       ensure:
         # p99 < 2s: 99th percentile must stay under 2 seconds even at peak load
         # This ensures outliers don't degrade user experience significantly
         p99: 2000
-        # median < 500ms: Typical response should feel snappy to users
-        # Half of all requests must complete within half a second
-        median: 500
+        # median < 750ms: t2.small's 20% CPU baseline (~0.2 vCPU) raises latency
+        # floor vs the t3.large this suite was originally written for (0.6 vCPU).
+        # 750ms is still comfortably user-perceptible as responsive and will flag
+        # genuine regressions without producing false failures on the slower instance.
+        median: 750
         # maxErrorRate < 1%: Production-like load should not cause errors
         # Errors under sustained load indicate capacity or stability issues
         maxErrorRate: 1
@@ -150,11 +152,11 @@ config:
     #   - Expected behavior: Graceful degradation, some errors acceptable
     #
     # Traffic pattern (aggressive ramp-up):
-    #   - Baseline:     60s at 10 req/s
-    #   - Moderate:     120s ramp to 50 req/s, hold 120s
-    #   - High:         120s ramp to 100 req/s, hold 120s
-    #   - Extreme:      120s ramp to 200 req/s, hold 120s
-    #   - Beyond:       60s ramp to 300 req/s
+    #   - Baseline:     60s at 3 req/s
+    #   - Moderate:     120s ramp to 15 req/s, hold 120s
+    #   - High:         120s ramp to 25 req/s, hold 120s
+    #   - Extreme:      120s ramp to 40 req/s, hold 120s
+    #   - Beyond:       60s ramp to 60 req/s
     #
     # SLAs (intentionally relaxed - we expect failures):
     #   - p99 response time < 10 seconds
@@ -171,42 +173,43 @@ config:
     #   - Point where latency degrades significantly
     #   - Memory/CPU usage on the server during test
     #
-    # t3.large notes:
-    #   - Results depend on CPU credit balance
-    #   - With credits: expect breaking at 200+ req/s
-    #   - After depletion: expect breaking at ~50-100 req/s
+    # t2.small notes:
+    #   - 1 vCPU with 20% baseline (~0.2 vCPU sustained)
+    #   - CPU credits: 12/hour (accumulate up to 288); no Unlimited mode by default
+    #   - With credits: expect breaking at ~30-40 req/s
+    #   - After depletion: expect breaking at ~15-25 req/s
     #   - For sustained baseline testing, run after credits are depleted
     # ========================================================================
     stress:
       phases:
         - name: "Baseline"
           duration: 60
-          arrivalRate: 10
+          arrivalRate: 3
         - name: "Ramp to moderate"
           duration: 120
-          arrivalRate: 10
-          rampTo: 50
+          arrivalRate: 3
+          rampTo: 15
         - name: "Hold moderate"
           duration: 120
-          arrivalRate: 50
+          arrivalRate: 15
         - name: "Ramp to high"
           duration: 120
-          arrivalRate: 50
-          rampTo: 100
+          arrivalRate: 15
+          rampTo: 25
         - name: "Hold high"
           duration: 120
-          arrivalRate: 100
+          arrivalRate: 25
         - name: "Ramp to extreme"
           duration: 120
-          arrivalRate: 100
-          rampTo: 200
+          arrivalRate: 25
+          rampTo: 40
         - name: "Hold extreme"
           duration: 120
-          arrivalRate: 200
+          arrivalRate: 40
         - name: "Beyond capacity"
           duration: 60
-          arrivalRate: 200
-          rampTo: 300
+          arrivalRate: 40
+          rampTo: 60
 
       ensure:
         # p99 < 10s: Allow high latency since we're pushing past normal limits

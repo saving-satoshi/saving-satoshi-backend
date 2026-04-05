@@ -126,8 +126,8 @@ Aggressive ramp-up to find system limits:
 - Includes REPL stress scenarios
 
 ### REPL Capacity Test (`repl-capacity.yaml`)
-WebSocket test for REPL container limits on t3.large:
-- Phases: 5 → 8 → 12 → 15 → 20 concurrent connections
+WebSocket test for REPL container limits on t2.small:
+- Phases: 2 → 3 → 4 → 5 → 6 concurrent connections
 - Longer phases to observe CPU credit depletion
 - Tests JavaScript and Python execution
 - Critical for EC2 instance sizing
@@ -145,20 +145,25 @@ If you need to add a new scenario (e.g., testing a new API endpoint), add it to 
 
 ## Capacity Planning Metrics
 
-For t3.large (2 vCPU, 8GB RAM):
+For t2.small (1 vCPU, 2GB RAM):
 
-t3 instances are burstable with a 30% baseline (~0.6 vCPU sustained). Performance
-degrades after CPU credits deplete under sustained load.
+t2 instances are burstable with a 20% baseline (~0.2 vCPU sustained). Performance
+degrades after CPU credits deplete under sustained load. Unlike t3, t2 Unlimited
+mode is off by default and must be opted in (extra cost).
+
+Memory budget: ~1350 MB available after OS and app overhead. At 256 MB per REPL
+container, hard cap is ~5 containers before OOM.
 
 | Metric | Healthy | Warning | Critical |
 |--------|---------|---------|----------|
-| Concurrent REPL (burst) | < 25 | 25-35 | > 35 |
-| Concurrent REPL (sustained) | < 10 | 10-15 | > 15 |
-| Memory usage | < 6.5GB | 6.5-7.5GB | > 7.5GB |
+| Concurrent REPL (burst) | < 4 | 4-5 | > 5 |
+| Concurrent REPL (sustained) | < 2 | 2-3 | > 3 |
+| Memory usage | < 1.5GB | 1.5-1.8GB | > 1.8GB |
 | API p99 latency | < 500ms | 500ms-2s | > 2s |
-| Sustained req/s | < 10 | 10-15 | > 15 |
+| Sustained req/s | < 5 | 5-10 | > 10 |
 | Error rate | < 1% | 1-5% | > 5% |
 
 **Testing considerations:**
 - Run stress tests with depleted credits for worst-case baseline
-- Consider t3 unlimited mode if sustained high load is expected
+- Enable t2 Unlimited mode only if burstable CPU is insufficient and cost is acceptable
+- Memory is a binding constraint alongside CPU; monitor both during REPL tests

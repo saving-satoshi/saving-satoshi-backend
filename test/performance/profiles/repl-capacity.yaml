@@ -1,15 +1,22 @@
 # =============================================================================
 # REPL CAPACITY TEST - Container Limits
 # =============================================================================
-# Purpose: Determine sustained REPL capacity on t3.large
+# Purpose: Determine sustained REPL capacity on t2.small
 # Duration: ~12 minutes (longer phases to observe CPU credit depletion)
 # Use when: EC2 instance sizing, autoscaling configuration, resource planning
 #
-# t3.large specifics:
-#   - 2 vCPU with 30% baseline (~0.6 vCPU sustained)
-#   - 8 GB RAM (memory is not the bottleneck)
-#   - CPU credits deplete under sustained load
-#   - After depletion: performance drops to baseline
+# t2.small specifics:
+#   - 1 vCPU with 20% baseline (~0.2 vCPU sustained)
+#   - 2 GB RAM (memory IS the bottleneck alongside CPU)
+#   - CPU credits: 12/hour; no Unlimited mode by default
+#   - After depletion: performance drops hard to 0.2 vCPU baseline
+#
+# Memory budget:
+#   - Total:      2048 MB
+#   - OS:         ~400 MB
+#   - Node app:   ~300 MB
+#   - Available:  ~1350 MB
+#   - Per container: 256 MB → hard cap of ~5 containers before OOM
 #
 # What it tests:
 #   - WebSocket connections (not HTTP like other profiles)
@@ -20,11 +27,11 @@
 #   - Sustained performance (credits depleting)
 #
 # Traffic pattern (conservative for burstable):
-#   - Baseline:     60s with max 5 concurrent (warm up)
-#   - Light:        120s with max 8 concurrent (observe credit usage)
-#   - Moderate:     180s with max 12 concurrent (sustained load)
-#   - Sustained:    180s with max 15 concurrent (credit depletion)
-#   - Peak:         120s with max 20 concurrent (worst-case test)
+#   - Baseline:     60s with max 2 concurrent (warm up)
+#   - Light:        120s with max 3 concurrent (observe credit usage)
+#   - Moderate:     180s with max 4 concurrent (sustained load)
+#   - Sustained:    180s with max 5 concurrent (approaching OOM limit)
+#   - Peak:         120s with max 6 concurrent (beyond safe limit)
 #
 # Code executed:
 #   - JavaScript: Hello world, computation loops
@@ -41,35 +48,35 @@
 #   - Critical for AWS instance sizing decisions
 #   - Longer phases to observe CPU credit depletion
 #
-# Capacity estimates for t3.large (8GB RAM, 30% CPU baseline):
-#   - Burst:      ~25 concurrent containers (with credits)
-#   - Sustained:  ~10-15 concurrent containers (after credit depletion)
-#   - Critical:   >20 concurrent containers
+# Capacity estimates for t2.small (2GB RAM, 20% CPU baseline):
+#   - Burst:      ~3-4 concurrent containers (with credits)
+#   - Sustained:  ~2 concurrent containers (after credit depletion)
+#   - Critical:   >5 concurrent containers (memory exhaustion)
 # =============================================================================
 
 config:
   target: "ws://localhost:8001"
   phases:
-    - name: "Baseline - 5 concurrent (burst mode)"
+    - name: "Baseline - 2 concurrent (burst mode)"
       duration: 60
       arrivalRate: 1
-      maxVusers: 5
-    - name: "Light load - 8 concurrent (credits available)"
+      maxVusers: 2
+    - name: "Light load - 3 concurrent (credits available)"
       duration: 120
       arrivalRate: 1
-      maxVusers: 8
-    - name: "Moderate - 12 concurrent (credits depleting)"
+      maxVusers: 3
+    - name: "Moderate - 4 concurrent (credits depleting)"
       duration: 180
-      arrivalRate: 2
-      maxVusers: 12
-    - name: "Sustained - 15 concurrent (near baseline)"
+      arrivalRate: 1
+      maxVusers: 4
+    - name: "Sustained - 5 concurrent (approaching memory limit)"
       duration: 180
-      arrivalRate: 2
-      maxVusers: 15
-    - name: "Peak - 20 concurrent (baseline performance)"
+      arrivalRate: 1
+      maxVusers: 5
+    - name: "Peak - 6 concurrent (beyond safe limit)"
       duration: 120
-      arrivalRate: 2
-      maxVusers: 20
+      arrivalRate: 1
+      maxVusers: 6
 
   plugins:
     expect: {}
