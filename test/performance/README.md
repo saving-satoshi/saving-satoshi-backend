@@ -116,11 +116,11 @@ Quick validation suitable for CI pipelines:
 Sustained traffic to establish performance baselines:
 - Phases: warmup → ramp → sustained → peak → cooldown
 - Scenarios: anonymous browsing, authenticated sessions, lesson data, features, REPL execution
-- SLAs: p99 < 2s, median < 500ms, error rate < 1%
+- SLAs: p99 < 2s, median < 750ms, error rate < 1%
 
 ### Stress Test (environment: `stress`)
 Aggressive ramp-up to find system limits:
-- Ramps from 10 to 300 requests/second
+- Ramps from 3 to 60 req/s
 - Relaxed SLAs to allow finding breaking points
 - Watch for: error rate spike, latency degradation
 - Includes REPL stress scenarios
