@@ -55,7 +55,7 @@
 # =============================================================================
 
 config:
-  target: "ws://localhost:8001"
+  target: "{{ $processEnvironment.ARTILLERY_WS_TARGET }}"
   phases:
     - name: "Baseline - 2 concurrent (burst mode)"
       duration: 60
@@ -99,7 +99,7 @@ scenarios:
     weight: 4
     engine: ws
     flow:
-      - connect: "ws://localhost:8001"
+      - connect: "{{ $processEnvironment.ARTILLERY_WS_TARGET }}"
       - think: 0.5
       - send:
           action: "repl"
@@ -113,7 +113,7 @@ scenarios:
     weight: 2
     engine: ws
     flow:
-      - connect: "ws://localhost:8001"
+      - connect: "{{ $processEnvironment.ARTILLERY_WS_TARGET }}"
       - think: 0.5
       - send:
           action: "repl"
@@ -130,7 +130,7 @@ scenarios:
     weight: 3
     engine: ws
     flow:
-      - connect: "ws://localhost:8001"
+      - connect: "{{ $processEnvironment.ARTILLERY_WS_TARGET }}"
       - think: 0.5
       - send:
           action: "repl"
@@ -144,7 +144,7 @@ scenarios:
     weight: 1
     engine: ws
     flow:
-      - connect: "ws://localhost:8001"
+      - connect: "{{ $processEnvironment.ARTILLERY_WS_TARGET }}"
       - think: 0.5
       - loop:
           - send:
@@ -162,7 +162,7 @@ scenarios:
     weight: 1
     engine: ws
     flow:
-      - connect: "ws://localhost:8001"
+      - connect: "{{ $processEnvironment.ARTILLERY_WS_TARGET }}"
       - think: 0.5
       - send:
           action: "repl"

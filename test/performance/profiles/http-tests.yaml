@@ -23,7 +23,7 @@
 # =============================================================================
 
 config:
-  target: "http://localhost:8001"
+  target: "{{ $processEnvironment.ARTILLERY_TARGET }}"
 
   plugins:
     expect: {}
@@ -443,7 +443,7 @@ scenarios:
     engine: ws
     flow:
       - function: "generateJsReplCode"
-      - connect: "ws://localhost:8001"
+      - connect: "{{ $processEnvironment.ARTILLERY_WS_TARGET }}"
       - think: 1
       # Dynamic JS code with variable execution time (1-40s, see processors/functions.js)
       - send:
@@ -458,7 +458,7 @@ scenarios:
     engine: ws
     flow:
       - function: "generatePyReplCode"
-      - connect: "ws://localhost:8001"
+      - connect: "{{ $processEnvironment.ARTILLERY_WS_TARGET }}"
       - think: 1
       # Dynamic Python code with variable execution time (1-40s, see processors/functions.js)
       - send:
