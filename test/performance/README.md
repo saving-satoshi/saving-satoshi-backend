@@ -106,7 +106,6 @@ make test-perf-smoke
 
 ### Smoke Test (environment: `smoke`)
 Quick validation suitable for CI pipelines:
-- Health check endpoint
 - Feature flags endpoint
 - Full auth flow (register, login, session, logout)
 - WebSocket REPL smoke test

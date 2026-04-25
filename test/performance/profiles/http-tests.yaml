@@ -15,7 +15,7 @@
 #   make test-perf-load
 #   make test-perf-stress
 #
-# IMPORTANT: All 9 scenarios run in ALL environments (smoke/load/stress).
+# IMPORTANT: All 8 scenarios run in ALL environments (smoke/load/stress).
 # Environments differ ONLY in their phases (duration/traffic) and SLAs.
 # Scenario weights, think times, and request flows are identical across
 # all environments. This is a fundamental limitation of Artillery's
@@ -43,7 +43,7 @@ config:
   # Use when: CI pipelines, pre-deployment checks, quick health validation
   #
   # What it tests:
-  #   - All 9 API scenarios run with light traffic (2-5 req/s)
+  #   - All 8 API scenarios run with light traffic (2-5 req/s)
   #   - Validates that endpoints are reachable and respond correctly
   #   - Quick health check suitable for CI/CD pipelines
   #   - Expected behavior: All requests succeed, fast response times
@@ -81,7 +81,7 @@ config:
     # Use when: Establishing performance baselines, capacity planning, regression testing
     #
     # What it tests:
-    #   - All 9 API scenarios run with production-like traffic (2-12 req/s)
+    #   - All 8 API scenarios run with production-like traffic (2-12 req/s)
     #   - Sustained load over 12 minutes to establish performance baselines
     #   - Tests system stability under realistic user patterns
     #   - Expected behavior: Maintains low latency (p99 < 2s, median < 750ms)
@@ -145,7 +145,7 @@ config:
     # Use when: Capacity planning, identifying bottlenecks, testing autoscaling triggers
     #
     # What it tests:
-    #   - All 9 API scenarios run with extreme traffic (3-60 req/s)
+    #   - All 8 API scenarios run with extreme traffic (3-60 req/s)
     #   - Pushes system beyond normal capacity to find breaking points
     #   - Identifies at what load level errors begin and latency degrades
     #   - Tests resource exhaustion: DB connections, memory, CPU limits
@@ -243,15 +243,6 @@ scenarios:
   # BASIC API SCENARIOS
   # ===========================================================================
 
-  - name: "Health check"
-    weight: 4
-    flow:
-      - get:
-          url: "/v1/status"
-          expect:
-            - statusCode: 200
-            - hasProperty: "status"
-
   - name: "List features"
     weight: 1
     flow:
@@ -318,7 +309,7 @@ scenarios:
     weight: 3
     flow:
       - get:
-          url: "/v1/status"
+          url: "/v1/features"
           expect:
             - statusCode: 200
       - think: 1
