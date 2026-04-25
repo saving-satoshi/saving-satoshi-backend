@@ -1,8 +1,15 @@
-# This workflow provisions AWS infrastructure using Terraform, optionally builds AMIs with Packer,
-# and deploys application updates via ASG instance refresh.
+# This workflow provisions AWS infrastructure using Terraform, optionally builds AMIs with
+# Packer, and deploys application updates via ASG instance refresh.
+#
+# Pipeline flow (push to master/develop):
+#   check             — Terraform + Packer format checks
+#   build-test        — build, migrate, test (also runs on PRs)
+#   check-ami-changes — detect whether server image files changed
+#   build-ami         — (conditional) build new AMI via Packer + Ansible (~10 min)
+#   deploy            — write secrets to SSM, terraform apply, trigger instance refresh
 #
 # Variables (Settings > Secrets and Variables > Actions > Variables):
-#   - AWS_EC2_INSTANCE_TYPE (optional): Primary instance type for ASG (default: t2.small)
+#   - AWS_EC2_INSTANCE_TYPE (optional): Primary instance type for ASG (default: t3.small)
 #   - AWS_EC2_KEY_PAIR_NAME: Name of existing EC2 key pair for SSH access
 #   - AWS_ROLE_ARN_TO_ASSUME: OIDC role ARN from `terraform/base` output
 #   - AWS_REGION: AWS region for deployment
@@ -16,12 +23,8 @@
 #   - WHITELIST (optional): CORS allowed origins
 #
 # Secrets (Settings > Secrets and Variables > Actions > Secrets):
-#   - DATABASE_URL: PostgreSQL connection string (stored in SSM at deploy time)
-#   - SECRET: JWT encryption secret (stored in SSM at deploy time)
-#
-# SSM Parameters (must be set before first deploy):
-#   - /saving-satoshi/{env}/database-url: DATABASE_URL (SecureString)
-#   - /saving-satoshi/{env}/secret: SECRET (SecureString)
+#   - DATABASE_URL: PostgreSQL connection string (written to SSM by the deploy job)
+#   - SECRET: JWT encryption secret (written to SSM by the deploy job)
 
 name: CI
 on:
@@ -160,6 +163,9 @@ jobs:
           MAX_SCRIPT_EXECUTION_TIME: 5000
           SECRET: test-secret
 
+  # AMI builds take ~10 minutes and create a billed AWS snapshot. This job checks whether
+  # any files that affect the server image actually changed, so build-ami is only triggered
+  # when necessary. Changes to application code alone skip straight to deploy.
   check-ami-changes:
     name: Check AMI Changes
     runs-on: ubuntu-latest
@@ -184,6 +190,11 @@ jobs:
               - 'ansible/saving-satoshi-backend.service.j2'
               - 'src/base_images/**'
 
+  # Packer launches a temporary EC2 instance, runs Ansible to install system packages
+  # (Node.js, Docker, Nginx), bakes the REPL Docker base images, warms the Yarn package
+  # cache, then snapshots the result into an AMI. Subsequent instance launches skip all
+  # that setup and boot in seconds instead of minutes. The AMI ID is stored in SSM so
+  # the deploy job can retrieve it even if this job was skipped.
   build-ami:
     name: Build AMI
     runs-on: ubuntu-latest
@@ -343,8 +354,11 @@ jobs:
             -var="ami=${{ steps.ami.outputs.ami_id }}"
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
 
-      # Trigger instance refresh on every deploy (Terraform does not auto-refresh
-      # when ASG uses version="$Latest" — the reference string never changes)
+      # Terraform does not auto-refresh when the ASG launch template uses version="$Latest"
+      # because the reference string never changes even after a new version is created.
+      # This step triggers a rolling replacement: new servers are launched and must pass
+      # health checks for 180s before old servers are terminated. MinHealthyPercentage=100
+      # ensures at least one server is always in service throughout the rollout.
       - name: Start Instance Refresh
         run: |
           ASG_NAME=$(terraform output -raw asg_name)
