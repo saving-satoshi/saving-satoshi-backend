@@ -229,7 +229,7 @@ config:
 #
 # Scenario design:
 # - All scenarios include expect blocks for response validation
-# - REPL scenarios use think time of 1 second
+# - Think times simulate human pacing between actions (1–3s for HTTP, 1s + replDelay for REPL)
 # - No continueOnError flags - tests fail fast for clearer debugging
 # - Traffic differentiation comes from environment-specific phases and SLAs
 #
@@ -269,6 +269,7 @@ scenarios:
           expect:
             - statusCode: 200
             - hasProperty: "id"
+      - think: 2
       - post:
           url: "/v1/auth/login"
           json:
@@ -279,6 +280,7 @@ scenarios:
           expect:
             - statusCode: 200
             - hasProperty: "token"
+      - think: 2
       - get:
           url: "/v1/auth/session"
           headers:
@@ -312,7 +314,7 @@ scenarios:
           url: "/v1/features"
           expect:
             - statusCode: 200
-      - think: 1
+      - think: 3
       - get:
           url: "/v1/features"
           expect:
@@ -391,7 +393,7 @@ scenarios:
           capture:
             - json: "$.token"
               as: "authToken"
-      - think: 1
+      - think: 3
       - put:
           url: "/v1/data"
           headers:
