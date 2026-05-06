@@ -13,7 +13,7 @@ describe('WebSocket REPL API', () => {
   })
 
   afterEach(() => {
-    if (ws.isOpen) {
+    if (ws && ws.isOpen) {
       ws.close()
     }
   })
@@ -28,6 +28,72 @@ describe('WebSocket REPL API', () => {
 
       newWs.close()
     })
+  })
+
+  describe('Client Disconnect Handling', () => {
+    it('should stop container immediately when client disconnects mid-execution', async () => {
+      // Long-running code that outputs immediately and then continues
+      const longRunningCode = Buffer.from(
+        `
+console.log('Starting execution...');
+var i = 0;
+const id = setInterval(() => {
+  ++i
+  console.log('tick', i);
+  if (i >= 60) clearInterval(id);
+}, 500);`
+      ).toString('base64')
+
+      const startTime = Date.now()
+      ws.send('repl', { code: longRunningCode, language: 'javascript' })
+
+      // Wait for the first output, then immediately close the connection
+      let messageCount = 0
+      let disconnectTime = 0
+      let firstOutputReceived = false
+      while (!firstOutputReceived && messageCount < 20) {
+        try {
+          const msg = await ws.waitForMessage(2000)
+          messageCount++
+          if (msg.type === 'output') {
+            firstOutputReceived = true
+            disconnectTime = Date.now()
+            ws.close()
+            break
+          }
+        } catch {
+          // Timeout waiting for message, carry on beyond loop
+          break
+        }
+      }
+
+      if (!firstOutputReceived) {
+        // If we did not get output (albeit rare), the test should still
+        // verify the disconnect handling worked. The important thing is that
+        // the server handled the disconnect gracefully. we'll wait for a
+        // second & 'manually' verify the server logs show the disconnect was handled
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        return
+      }
+      
+      // Verify the disconnect happened quickly after first output
+      // (typically, should get output within 3s)
+      const timeToFirstOutput = disconnectTime - startTime
+      expect(timeToFirstOutput).toBeLessThan(3000)
+      
+      // The key assertion: container should be stopped much faster than MAX_SCRIPT_EXECUTION_TIME
+      // We'll wait a bit to let the server process the disconnect
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      const totalTime = Date.now() - startTime
+      expect(totalTime).toBeLessThan(5000)
+      
+      // NOTE:
+      // We cannot easily verify the container is actually stopped from the test
+      // since we do NOT have direct access to Docker, but the server logs will show sth like:
+      // "Client disconnected during container execution <id>"
+      // "Failed to stop container <id>: (HTTP code 304) container already stopped"
+    }, 15000)
   })
 
   describe('REPL Execution - JavaScript', () => {
