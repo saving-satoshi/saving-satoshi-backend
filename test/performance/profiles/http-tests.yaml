@@ -13,7 +13,7 @@
 #   make test-perf-smoke
 #   make test-perf-load
 #
-# IMPORTANT: All 8 scenarios run in ALL environments (smoke/load).
+# IMPORTANT: All 7 scenarios run in ALL environments (smoke/load).
 # Environments differ ONLY in their phases (duration/traffic) and SLAs.
 # Scenario weights, think times, and request flows are identical across
 # all environments. This is a fundamental limitation of Artillery's
@@ -51,7 +51,7 @@ config:
   #   - Error rate < 1%
   #
   # Differences from load profile:
-  #   - Shortest duration (30s vs ~12 min for load)
+  #   - Shortest duration (30s vs ~14 min for load)
   #   - Lowest traffic (2-5 req/s vs up to 12 req/s for load)
   #   - Strictest SLAs (designed to pass reliably)
   # ==========================================================================
@@ -75,18 +75,18 @@ config:
     # ENVIRONMENT: LOAD TEST
     # ========================================================================
     # Purpose: Measure system performance under expected production-like traffic
-    # Duration: ~12 minutes
+    # Duration: ~14 minutes
     # Use when: Establishing performance baselines, capacity planning, regression testing
     #
     # What it tests:
-    #   - All 8 API scenarios run with production-like traffic (2-12 req/s)
-    #   - Sustained load over 12 minutes to establish performance baselines
+    #   - All 7 API scenarios run with production-like traffic (2-12 req/s)
+    #   - Sustained load over 14 minutes to establish performance baselines
     #   - Tests system stability under realistic user patterns
     #   - Expected behavior: Maintains low latency (p99 < 2s, median < 750ms)
     #
     # Traffic pattern:
     #   - Warm up:      60s at 2 req/s
-    #   - Ramp up:      120s from 2 to 8 req/s
+    #   - Ramp up:      240s from 2 to 8 req/s
     #   - Sustained:    300s at 8 req/s
     #   - Peak:         180s at 12 req/s
     #   - Cool down:    60s from 12 to 2 req/s
@@ -96,8 +96,8 @@ config:
     #   - Median response time < 750ms
     #   - Error rate < 1%
     #
-    # Differences from other profiles:
-    #   - Medium duration (12 min vs 30s for smoke, 15 min for stress)
+    # Differences from smoke profile:
+    #   - Longer duration (~14 min vs 30s for smoke)
     #   - Production-like traffic (2-12 req/s steady)
     #   - Includes median latency SLA (< 750ms) for user experience validation
     #   - Multi-phase pattern: warm up → ramp → sustained → peak → cool down
@@ -126,7 +126,7 @@ config:
         # p99 < 2s: 99th percentile must stay under 2 seconds even at peak load
         # This ensures outliers don't degrade user experience significantly
         p99: 2000
-        # median < 750ms: t2.small's 20% CPU baseline (~0.2 vCPU) raises latency
+        # median < 750ms: t3.small's 20% CPU baseline (~0.4 vCPU) raises latency
         # floor vs the t3.large this suite was originally written for (0.6 vCPU).
         # 750ms is still comfortably user-perceptible as responsive and will flag
         # genuine regressions without producing false failures on the slower instance.
@@ -139,7 +139,7 @@ config:
 # =============================================================================
 # SHARED SCENARIOS
 # =============================================================================
-# All scenarios below are shared across smoke/load environments.
+# All 7 scenarios below are shared across smoke/load environments.
 # Artillery's environments feature means ALL scenarios run in ALL environments,
 # with different phases and SLAs per environment controlling the test behavior.
 #
