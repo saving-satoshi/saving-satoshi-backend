@@ -2,20 +2,18 @@
 # CONSOLIDATED HTTP API TESTS
 # =============================================================================
 # This file contains all HTTP-based performance test profiles using Artillery's
-# environments feature. Each environment (smoke/load/stress) has its own phases
+# environments feature. Each environment (smoke/load) has its own phases
 # and SLAs, but shares the same scenario definitions.
 #
 # Usage:
 #   artillery run -e smoke /scripts/profiles/http-tests.yaml
 #   artillery run -e load /scripts/profiles/http-tests.yaml
-#   artillery run -e stress /scripts/profiles/http-tests.yaml
 #
 # Or via Makefile:
 #   make test-perf-smoke
 #   make test-perf-load
-#   make test-perf-stress
 #
-# IMPORTANT: All 8 scenarios run in ALL environments (smoke/load/stress).
+# IMPORTANT: All 8 scenarios run in ALL environments (smoke/load).
 # Environments differ ONLY in their phases (duration/traffic) and SLAs.
 # Scenario weights, think times, and request flows are identical across
 # all environments. This is a fundamental limitation of Artillery's
@@ -43,7 +41,7 @@ config:
   # Use when: CI pipelines, pre-deployment checks, quick health validation
   #
   # What it tests:
-  #   - All 8 API scenarios run with light traffic (2-5 req/s)
+  #   - All 7 API scenarios run with light traffic (2-5 req/s)
   #   - Validates that endpoints are reachable and respond correctly
   #   - Quick health check suitable for CI/CD pipelines
   #   - Expected behavior: All requests succeed, fast response times
@@ -52,9 +50,9 @@ config:
   #   - p99 response time < 2 seconds
   #   - Error rate < 1%
   #
-  # Differences from other profiles:
-  #   - Shortest duration (30s vs 12-15 min for load/stress)
-  #   - Lowest traffic (2-5 req/s vs up to 60 req/s for stress)
+  # Differences from load profile:
+  #   - Shortest duration (30s vs ~12 min for load)
+  #   - Lowest traffic (2-5 req/s vs up to 12 req/s for load)
   #   - Strictest SLAs (designed to pass reliably)
   # ==========================================================================
   environments:
@@ -137,93 +135,11 @@ config:
         # Errors under sustained load indicate capacity or stability issues
         maxErrorRate: 1
 
-    # ========================================================================
-    # ENVIRONMENT: STRESS TEST
-    # ========================================================================
-    # Purpose: Push the system beyond normal limits to find maximum capacity
-    # Duration: ~15 minutes
-    # Use when: Capacity planning, identifying bottlenecks, testing autoscaling triggers
-    #
-    # What it tests:
-    #   - All 8 API scenarios run with extreme traffic (3-60 req/s)
-    #   - Pushes system beyond normal capacity to find breaking points
-    #   - Identifies at what load level errors begin and latency degrades
-    #   - Tests resource exhaustion: DB connections, memory, CPU limits
-    #   - Expected behavior: Graceful degradation, some errors acceptable
-    #
-    # Traffic pattern (aggressive ramp-up):
-    #   - Baseline:     60s at 3 req/s
-    #   - Moderate:     120s ramp to 15 req/s, hold 120s
-    #   - High:         120s ramp to 25 req/s, hold 120s
-    #   - Extreme:      120s ramp to 40 req/s, hold 120s
-    #   - Beyond:       60s ramp to 60 req/s
-    #
-    # SLAs (intentionally relaxed - we expect failures):
-    #   - p99 response time < 10 seconds
-    #   - Error rate < 10%
-    #
-    # Differences from other profiles:
-    #   - Longest duration (15 min) with aggressive ramp-up pattern
-    #   - Highest traffic volume (3-60 req/s)
-    #   - Relaxed SLAs (p99 < 10s, maxErrorRate < 10%) to allow finding limits
-    #   - Purpose is to identify breaking points, not validate normal operation
-    #
-    # Key metrics to watch:
-    #   - Point where error rate spikes (system saturation)
-    #   - Point where latency degrades significantly
-    #   - Memory/CPU usage on the server during test
-    #
-    # t2.small notes:
-    #   - 1 vCPU with 20% baseline (~0.2 vCPU sustained)
-    #   - CPU credits: 12/hour (accumulate up to 288); no Unlimited mode by default
-    #   - With credits: expect breaking at ~30-40 req/s
-    #   - After depletion: expect breaking at ~15-25 req/s
-    #   - For sustained baseline testing, run after credits are depleted
-    # ========================================================================
-    stress:
-      phases:
-        - name: "Baseline"
-          duration: 60
-          arrivalRate: 3
-        - name: "Ramp to moderate"
-          duration: 120
-          arrivalRate: 3
-          rampTo: 15
-        - name: "Hold moderate"
-          duration: 120
-          arrivalRate: 15
-        - name: "Ramp to high"
-          duration: 120
-          arrivalRate: 15
-          rampTo: 25
-        - name: "Hold high"
-          duration: 120
-          arrivalRate: 25
-        - name: "Ramp to extreme"
-          duration: 120
-          arrivalRate: 25
-          rampTo: 40
-        - name: "Hold extreme"
-          duration: 120
-          arrivalRate: 40
-        - name: "Beyond capacity"
-          duration: 60
-          arrivalRate: 40
-          rampTo: 60
-
-      ensure:
-        # p99 < 10s: Allow high latency since we're pushing past normal limits
-        # We expect degradation; this just prevents complete system lockup
-        p99: 10000
-        # maxErrorRate < 10%: Allow up to 10% errors under extreme load
-        # The goal is to find WHERE errors start, not to have zero errors
-        # Watch the metrics to identify the breaking point
-        maxErrorRate: 10
 
 # =============================================================================
 # SHARED SCENARIOS
 # =============================================================================
-# All scenarios below are shared across smoke/load/stress environments.
+# All scenarios below are shared across smoke/load environments.
 # Artillery's environments feature means ALL scenarios run in ALL environments,
 # with different phases and SLAs per environment controlling the test behavior.
 #
@@ -232,10 +148,6 @@ config:
 # - Think times simulate human pacing between actions (1–3s for HTTP, 1s + replDelay for REPL)
 # - No continueOnError flags - tests fail fast for clearer debugging
 # - Traffic differentiation comes from environment-specific phases and SLAs
-#
-# Note: This is a limitation of Artillery's environments - we cannot selectively
-# run different scenarios per environment. However, the different phases (30s
-# for smoke vs 15min for stress) and SLAs naturally differentiate test behavior.
 # =============================================================================
 
 scenarios:

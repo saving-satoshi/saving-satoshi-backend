@@ -60,8 +60,8 @@ function logResponse(requestParams, response, context, ee, next) {
 //   REPL_DIST_TIMEOUT - Probability of 31-40s execution (default: 0.02)
 //                       Simulates code that exceeds 30s timeout limit
 //
-// Example: Run with 10% timeout rate for stress testing:
-//   REPL_DIST_TIMEOUT=0.10 REPL_DIST_SHORT=0.62 make test-perf-stress
+// Example: Run with 10% timeout rate to simulate heavier workloads:
+//   REPL_DIST_TIMEOUT=0.10 REPL_DIST_SHORT=0.62 make test-perf-load
 //
 const REPL_DIST_SHORT = parseFloat(process.env.REPL_DIST_SHORT || '0.70');
 const REPL_DIST_MEDIUM = parseFloat(process.env.REPL_DIST_MEDIUM || '0.20');

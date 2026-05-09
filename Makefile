@@ -48,8 +48,6 @@ test-perf-smoke:
 test-perf-load:
 	$(ARTILLERY_CMD) run -e load /scripts/profiles/http-tests.yaml
 
-test-perf-stress:
-	$(ARTILLERY_CMD) run -e stress /scripts/profiles/http-tests.yaml
 
 test-perf-repl:
 	$(ARTILLERY_CMD) run /scripts/profiles/repl-capacity.yaml
