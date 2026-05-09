@@ -68,6 +68,12 @@ const REPL_DIST_MEDIUM = parseFloat(process.env.REPL_DIST_MEDIUM || '0.20');
 const REPL_DIST_LONG = parseFloat(process.env.REPL_DIST_LONG || '0.08');
 const REPL_DIST_TIMEOUT = parseFloat(process.env.REPL_DIST_TIMEOUT || '0.02');
 
+// Values must sum to 1.0; 1e-9 tolerance accounts for floating point rounding errors.
+const _replDistTotal = REPL_DIST_SHORT + REPL_DIST_MEDIUM + REPL_DIST_LONG + REPL_DIST_TIMEOUT;
+if (Math.abs(_replDistTotal - 1.0) > 1e-9) {
+  throw new Error(`REPL_DIST_* values must sum to 1.0, got ${_replDistTotal.toFixed(10)}`);
+}
+
 /**
  * Generate a weighted random delay based on distribution settings.
  * Returns delay in milliseconds.
