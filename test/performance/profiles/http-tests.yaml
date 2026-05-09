@@ -110,7 +110,7 @@ config:
           duration: 60
           arrivalRate: 2
         - name: "Ramp up"
-          duration: 120
+          duration: 240
           arrivalRate: 2
           rampTo: 8
         - name: "Sustained load"
@@ -432,7 +432,7 @@ scenarios:
   # ===========================================================================
 
   - name: "REPL JavaScript execution"
-    weight: 2
+    weight: 1
     engine: ws
     flow:
       - function: "generateJsReplCode"
@@ -444,19 +444,4 @@ scenarios:
           payload:
             code: "{{ replCode }}"
             language: "javascript"
-      - think: "{{ replDelay }}"
-
-  - name: "REPL Python execution"
-    weight: 1
-    engine: ws
-    flow:
-      - function: "generatePyReplCode"
-      - connect: "{{ $processEnvironment.ARTILLERY_WS_TARGET }}"
-      - think: 1
-      # Dynamic Python code with variable execution time (1-40s, see processors/functions.js)
-      - send:
-          action: "repl"
-          payload:
-            code: "{{ replCode }}"
-            language: "python"
       - think: "{{ replDelay }}"
