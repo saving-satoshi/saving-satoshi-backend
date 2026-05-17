@@ -245,6 +245,7 @@ jobs:
           packer build \
             -var "aws_region=${{ vars.AWS_REGION }}" \
             -var "environment=${{ env.ENVIRONMENT }}" \
+            -var-file=variables.pkrvars.hcl \
             -machine-readable \
             ami.pkr.hcl | tee packer.log
 

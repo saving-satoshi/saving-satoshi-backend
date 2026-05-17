@@ -2,7 +2,7 @@
 # Override defaults for production/staging builds
 
 aws_region      = "us-west-2"
-instance_type   = "t3.small"
+instance_type   = "c6a.xlarge"
 ami_name_prefix = "saving-satoshi-backend"
 
 # Base AMI: Ubuntu 24.04 LTS in us-west-2
