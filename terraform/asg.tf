@@ -187,6 +187,22 @@ resource "aws_autoscaling_group" "app" {
   health_check_type         = "ELB"
   health_check_grace_period = var.health_check_grace_period
 
+  enabled_metrics = [
+    "GroupMinSize",
+    "GroupMaxSize",
+    "GroupDesiredCapacity",
+    "GroupInServiceInstances",
+    "GroupPendingInstances",
+    "GroupStandbyInstances",
+    "GroupTerminatingInstances",
+    "GroupTotalInstances",
+    "GroupInServiceCapacity",
+    "GroupPendingCapacity",
+    "GroupStandbyCapacity",
+    "GroupTerminatingCapacity",
+    "GroupTotalCapacity",
+  ]
+
   # Capacity rebalancing for Spot instance interruption handling
   capacity_rebalance = true
 
