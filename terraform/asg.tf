@@ -198,7 +198,7 @@ resource "aws_autoscaling_group" "app" {
         version            = "$Latest"
       }
 
-      # Primary instance type comes first; spot_instance_types provides
+      # Primary instance type comes first; fallback_instance_types provides
       # fallback diversity for Spot availability. Explicit first override
       # ensures var.instance_type (set via AWS_EC2_INSTANCE_TYPE) is honoured —
       # the launch template instance_type is ignored when overrides are present.
@@ -207,7 +207,7 @@ resource "aws_autoscaling_group" "app" {
       }
 
       dynamic "override" {
-        for_each = [for t in var.spot_instance_types : t if t != var.instance_type]
+        for_each = [for t in var.fallback_instance_types : t if t != var.instance_type]
         content {
           instance_type = override.value
         }

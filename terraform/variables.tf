@@ -60,7 +60,7 @@ variable "desired_capacity" {
   description = "Desired number of instances in the Auto Scaling Group (scale-to-1 baseline)"
 }
 
-variable "spot_instance_types" {
+variable "fallback_instance_types" {
   type        = list(string)
   default     = ["t3.small", "t3.medium", "t2.medium"]
   description = "Fallback instance types for Spot diversity (var.instance_type is always the first override)"
