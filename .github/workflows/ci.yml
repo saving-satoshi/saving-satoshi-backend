@@ -13,14 +13,19 @@
 #   - AWS_EC2_KEY_PAIR_NAME: Name of existing EC2 key pair for SSH access
 #   - AWS_ROLE_ARN_TO_ASSUME: OIDC role ARN from `terraform/base` output
 #   - AWS_REGION: AWS region for deployment
-#   - AWS_ROUTE53_HOSTED_ZONE_ID: Hosted zone ID from `terraform/base` output
-#   - AWS_S3_TERRAFORM_STATE_BUCKET_NAME: S3 bucket for Terraform state
-#   - AWS_S3_TERRAFORM_STATE_OBJECT_KEY: State file key in the bucket
+#   - AWS_ROUTE53_HOSTED_ZONE_ID: Hosted zone ID from `terraform/base` output - should be the
+#       output `dns_zone_id` from running the Terraform baseline infrastructure in
+#       `terraform/base`
+#   - AWS_S3_TERRAFORM_STATE_BUCKET_NAME: S3 bucket for Terraform state - should be the output
+#       `terraform_state_bucket_name` from running the Terraform baseline infrastructure in
+#       `terraform/base`
+#   - AWS_S3_TERRAFORM_STATE_OBJECT_KEY: State file key in the bucket - the name of the file
+#        which will hold the Terraform state inside the above bucket
 #   - ENVIRONMENT (optional): Environment name for namespacing
 #   - HOSTNAME: Application hostname (ex. api.savingsatoshi.com)
 #   - MAX_SCRIPT_EXECUTION_TIME (optional): REPL timeout in ms (default: 10000)
 #   - PORT (optional): Server port (default: 8000)
-#   - WHITELIST (optional): CORS allowed origins
+#   - WHITELIST (optional): CORS allowed origins - a comma-separated list
 #
 # Secrets (Settings > Secrets and Variables > Actions > Secrets):
 #   - DATABASE_URL: PostgreSQL connection string (written to SSM by the deploy job)

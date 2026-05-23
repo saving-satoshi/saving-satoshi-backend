@@ -22,7 +22,7 @@ the correct application version from Git, installs packages, writes the environm
 
 ### `playbook.yaml` — Direct VPS deployment
 
-The original single-server playbook. Retained as an escape hatch if the AWS auto-scaling
+The original single-server playbook. Retained as a reference if the AWS auto-scaling
 setup ever becomes too costly or operationally complex to justify — for example, when
 migrating to a VPS provider like Hetzner or DigitalOcean. It handles the full setup in one
 pass: system packages, SSL certificate via Let's Encrypt, application deployment, Nginx, and
