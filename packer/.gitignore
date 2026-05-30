@@ -1,0 +1,4 @@
+# Packer build artifacts
+manifest.json
+*.log
+.packer.d/

@@ -1,0 +1,120 @@
+---
+# Runtime playbook executed at instance boot via user-data
+# Deploys application code and starts services
+# Requires environment variables: APP_VERSION, APP_ENV_CONTENT, DATABASE_URL
+
+- name: Deploy application at runtime
+  hosts: localhost
+  connection: local
+  become: true
+  environment:
+    YARN_CACHE_FOLDER: "{{ yarn_cache_dir }}"
+
+  vars:
+    app_root: /var/www/saving-satoshi-backend
+    app_version: "{{ lookup('env', 'APP_VERSION') | default('master', true) }}"
+    app_repo: "{{ lookup('env', 'APP_REPO') | default('https://github.com/saving-satoshi/saving-satoshi-backend.git', true) }}"
+    yarn_cache_dir: /var/cache/yarn
+    docker_base_images:
+      - name: js-base
+        context: "{{ app_root }}/src/base_images/javascript"
+      - name: py-base
+        context: "{{ app_root }}/src/base_images/python"
+
+  tasks:
+    # ============================================================
+    # Application Code Deployment
+    # ============================================================
+    - name: Checkout application from Git
+      ansible.builtin.git:
+        repo: "{{ app_repo }}"
+        dest: "{{ app_root }}"
+        version: "{{ app_version }}"
+        force: true
+      become_user: satoshi
+
+    - name: Install application packages via Yarn
+      community.general.yarn:
+        path: "{{ app_root }}"
+      become_user: satoshi
+
+    # ============================================================
+    # Environment Configuration
+    # ============================================================
+    - name: Write environment configuration
+      ansible.builtin.copy:
+        content: "{{ lookup('env', 'APP_ENV_CONTENT') }}"
+        dest: "{{ app_root }}/.env"
+        owner: satoshi
+        group: satoshi
+        mode: '0600'
+
+    # ============================================================
+    # Build Application
+    # ============================================================
+    - name: Build application (yarn build)
+      ansible.builtin.command: yarn build
+      args:
+        chdir: "{{ app_root }}"
+      become_user: satoshi
+
+    - name: Run database migrations
+      ansible.builtin.command: yarn db:migrate:production
+      args:
+        chdir: "{{ app_root }}"
+      become_user: satoshi
+      environment:
+        DATABASE_URL: "{{ lookup('env', 'DATABASE_URL') }}"
+
+    # ============================================================
+    # Directory Permissions
+    # ============================================================
+    - name: Ensure directory permissions
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: satoshi
+        group: satoshi
+        recurse: true
+      loop:
+        - "{{ app_root }}/dist"
+        - "{{ app_root }}/logs"
+        - /var/log/saving-satoshi-backend
+
+    # ============================================================
+    # Docker Base Images
+    # ============================================================
+    - name: Build Docker base images for REPL
+      community.docker.docker_image_build:
+        name: "{{ item.name }}"
+        path: "{{ item.context }}"
+        rebuild: never
+      loop: "{{ docker_base_images }}"
+
+    # ============================================================
+    # Start Services
+    # ============================================================
+    - name: Start Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        enabled: true
+        state: restarted
+
+    - name: Start application service
+      ansible.builtin.systemd:
+        name: saving-satoshi-backend
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Verify application is running
+      ansible.builtin.wait_for:
+        port: 8000
+        host: localhost
+        delay: 5
+        timeout: 60
+      register: app_health
+
+    - name: Log deployment success
+      ansible.builtin.debug:
+        msg: "Application deployed successfully. Version: {{ app_version }}"

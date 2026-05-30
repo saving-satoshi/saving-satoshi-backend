@@ -1,0 +1,233 @@
+---
+# Base playbook for AMI creation via Packer
+# Installs all system dependencies but NO application code
+# Application deployment happens at instance boot via playbook-runtime.yaml
+
+- name: Configure base AMI for application server
+  hosts: all
+  become: true
+
+  vars:
+    app_root: /var/www/saving-satoshi-backend
+    app_repo: "https://github.com/saving-satoshi/saving-satoshi-backend.git"
+    aws_region: "{{ aws_region | default('us-west-2') }}"
+    log_group_name: "saving-satoshi-{{ env | default('production') }}-app"
+    yarn_cache_dir: /var/cache/yarn
+
+  roles:
+    # CloudWatch Agent for logging and metrics
+    # https://galaxy.ansible.com/ui/standalone/roles/christiangda/amazon_cloudwatch_agent
+    - role: christiangda.amazon_cloudwatch_agent
+      vars:
+        cwa_agent_mode: ec2
+        cwa_aws_region: "{{ aws_region }}"
+        cwa_profile: "AmazonCloudWatchAgent"
+        cwa_conf_json_file_content:
+          agent:
+            metrics_collection_interval: 60
+            region: "{{ aws_region }}"
+            logfile: "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+            debug: false
+          metrics:
+            namespace: "SavingSatoshi/Instance"
+            metrics_collected:
+              mem:
+                measurement:
+                  - mem_used_percent
+              disk:
+                measurement:
+                  - used_percent
+                resources:
+                  - "/"
+          logs:
+            logs_collected:
+              files:
+                collect_list:
+                  - file_path: "/var/log/saving-satoshi-backend/all.log"
+                    log_group_name: "{{ log_group_name }}"
+                    log_stream_name: "{instance_id}/all.log"
+                    timezone: UTC
+            log_stream_name: "{instance_id}"
+            force_flush_interval: 15
+
+  tasks:
+    # ============================================================
+    # Docker Installation (from https://docs.docker.com/engine/install/ubuntu)
+    # ============================================================
+    - name: Add Docker GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "a+r"
+
+    - name: Add Docker APT repository
+      ansible.builtin.apt_repository:
+        repo: deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+
+    # ============================================================
+    # System Package Installation
+    # ============================================================
+    - name: Update APT packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: safe
+
+    - name: Install APT packages
+      ansible.builtin.apt:
+        name:
+          # Docker
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+          # Web server
+          - nginx
+          # Node.js runtime
+          - nodejs
+          - npm
+          # Security
+          - fail2ban
+          # Utilities
+          - git
+          - jq
+          - unzip
+        state: present
+
+    - name: Install AWS CLI v2
+      ansible.builtin.shell: |
+        curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+        unzip -q /tmp/awscliv2.zip -d /tmp/awscliv2
+        /tmp/awscliv2/aws/install
+        rm -rf /tmp/awscliv2.zip /tmp/awscliv2
+      args:
+        creates: /usr/local/bin/aws
+
+    # NOTE: Certbot/Let's Encrypt removed - ALB handles SSL termination
+
+    # ============================================================
+    # Nginx Configuration
+    # ============================================================
+    - name: Remove default Nginx site
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Install ALB-compatible Nginx configuration
+      ansible.builtin.template:
+        src: saving-satoshi-backend-alb.nginx.j2
+        dest: /etc/nginx/sites-enabled/saving-satoshi-backend.conf
+
+    # ============================================================
+    # Application User & Directories
+    # ============================================================
+    - name: Create application user
+      ansible.builtin.user:
+        name: satoshi
+        system: true
+        create_home: false
+        groups: ["docker"]
+        append: true
+
+    - name: Install Yarn globally via NPM
+      community.general.npm:
+        name: yarn
+        global: true
+
+    - name: Create application directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: satoshi
+        group: satoshi
+        mode: '0755'
+      loop:
+        - "{{ app_root }}"
+        - /var/log/saving-satoshi-backend
+
+    # ============================================================
+    # Yarn Cache Pre-warming
+    # ============================================================
+    # Warm the global Yarn cache at build time so instance startup
+    # resolves packages from local cache rather than the npm network.
+    # The cache dir is owned by satoshi and persists across reboots;
+    # YARN_CACHE_FOLDER must be set to the same path in the runtime
+    # playbook so the two processes share the same cache store.
+    # ============================================================
+    - name: Create Yarn cache directory
+      ansible.builtin.file:
+        path: "{{ yarn_cache_dir }}"
+        state: directory
+        owner: satoshi
+        group: satoshi
+        mode: '0755'
+
+    - name: Clone application source for Yarn cache warming
+      ansible.builtin.git:
+        repo: "{{ app_repo }}"
+        dest: /tmp/yarn-warmup
+        version: master
+        depth: 1
+      become_user: satoshi
+
+    - name: Warm Yarn package cache
+      community.general.yarn:
+        path: /tmp/yarn-warmup
+      become_user: satoshi
+      environment:
+        YARN_CACHE_FOLDER: "{{ yarn_cache_dir }}"
+
+    - name: Remove temporary warmup checkout
+      ansible.builtin.file:
+        path: /tmp/yarn-warmup
+        state: absent
+
+    # ============================================================
+    # Docker REPL Base Images (baked into AMI)
+    # ============================================================
+    # Build js-base and py-base at AMI creation time so instances
+    # start with images already present in /var/lib/docker.
+    # The runtime playbook skips the build when images exist
+    # (rebuild: never). Any change to src/base_images/ must be
+    # reflected in the CI paths filter to trigger an AMI rebuild.
+    # ============================================================
+    - name: Ensure Docker daemon is running before image builds
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Build REPL Docker base images
+      community.docker.docker_image_build:
+        name: "{{ item.name }}"
+        path: "{{ item.path }}"
+      loop:
+        - { name: js-base, path: /tmp/base_images/javascript }
+        - { name: py-base, path: /tmp/base_images/python }
+
+    # ============================================================
+    # Systemd Service (installed but not enabled)
+    # ============================================================
+    - name: Install systemd unit configuration
+      ansible.builtin.template:
+        src: saving-satoshi-backend.service.j2
+        dest: /etc/systemd/system/saving-satoshi-backend.service
+
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    # ============================================================
+    # Runtime Playbook Preparation
+    # ============================================================
+    - name: Create ansible directory for runtime playbook
+      ansible.builtin.file:
+        path: /opt/ansible
+        state: directory
+        mode: '0755'
+
+    - name: Copy runtime playbook for instance boot
+      ansible.builtin.copy:
+        src: playbook-runtime.yaml
+        dest: /opt/ansible/playbook-runtime.yaml
+        mode: '0644'

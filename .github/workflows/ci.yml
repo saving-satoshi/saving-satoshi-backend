@@ -1,36 +1,35 @@
-# This workflow provisions AWS infrastructure using Terraform and configures the resulting
-# instance using Ansible. It requires the following environment variables and secrets
-# configured in the GitHub repository settings (Settings > Secrets and Variables > Actions):
+# This workflow provisions AWS infrastructure using Terraform, optionally builds AMIs with
+# Packer, and deploys application updates via ASG instance refresh.
 #
-# Variables:
-#   - AWS_EC2_INSTANCE_TYPE (optional): The type of the AWS instance to provision (ex.
-#       t3.large). Omitting this value should fallback to the Terraform variable default.
-#   - AWS_EC2_KEY_PAIR_NAME: The *name* of an existing EC2 key pair to use when provisioning
-#       the EC2 instances. Allows SSH access.
-#   - AWS_ROLE_ARN_TO_ASSUME: The Role ARN which is the output `assumed_role_arn` from
-#       running the Terraform baseline infrastructure in `terraform/base`.
-#   - AWS_REGION: The region into which to deploy the application.
-#   - AWS_ROUTE53_HOSTED_ZONE_ID: The ID of the hosted zone under which the DNS records for
-#       the application will be managed. This value should be the output `dns_zone_id` from
-#       running the Terraform baseline infrastructure in `terraform/base`.
-#   - AWS_S3_TERRAFORM_STATE_BUCKET_NAME: The S3 bucket name which is the output
+# Pipeline flow (push to master/develop):
+#   check             — Terraform + Packer format checks
+#   build-test        — build, migrate, test (also runs on PRs)
+#   check-ami-changes — detect whether server image files changed
+#   build-ami         — (conditional) build new AMI via Packer + Ansible (~10 min)
+#   deploy            — write secrets to SSM, terraform apply, trigger instance refresh
+#
+# Variables (Settings > Secrets and Variables > Actions > Variables):
+#   - AWS_EC2_INSTANCE_TYPE (optional): Primary instance type for ASG (default: t3.small)
+#   - AWS_EC2_KEY_PAIR_NAME: Name of existing EC2 key pair for SSH access
+#   - AWS_ROLE_ARN_TO_ASSUME: OIDC role ARN from `terraform/base` output
+#   - AWS_REGION: AWS region for deployment
+#   - AWS_ROUTE53_HOSTED_ZONE_ID: Hosted zone ID from `terraform/base` output - should be the
+#       output `dns_zone_id` from running the Terraform baseline infrastructure in
+#       `terraform/base`
+#   - AWS_S3_TERRAFORM_STATE_BUCKET_NAME: S3 bucket for Terraform state - should be the output
 #       `terraform_state_bucket_name` from running the Terraform baseline infrastructure in
-#       `terraform/base`.
-#   - AWS_S3_TERRAFORM_STATE_OBJECT_KEY: The name of the *file* which will hold the Terraform
-#       state inside the above bucket.
-#   - ENVIRONMENT (optional): The name of the environment for namespacing purposes.
-#   - HOSTNAME: The hostname of the application (ex. api.savingsatoshi.com).
-#   - MAX_SCRIPT_EXECUTION_TIME (optional): The application config value in milliseconds for
-#       REPL container timeouts.
-#   - PORT (optional): The application config value for the server listening port.
-#   - WHITELIST (optional): The application config value as a comma-separated list defining
-#       which allowed Origin headers are allowed to access the API.
+#       `terraform/base`
+#   - AWS_S3_TERRAFORM_STATE_OBJECT_KEY: State file key in the bucket - the name of the file
+#        which will hold the Terraform state inside the above bucket
+#   - ENVIRONMENT (optional): Environment name for namespacing
+#   - HOSTNAME: Application hostname (ex. api.savingsatoshi.com)
+#   - MAX_SCRIPT_EXECUTION_TIME (optional): REPL timeout in ms (default: 10000)
+#   - PORT (optional): Server port (default: 8000)
+#   - WHITELIST (optional): CORS allowed origins - a comma-separated list
 #
-# Secrets:
-#   - AWS_EC2_SSH_PRIVATE_KEY: The SSH private key corresponding to the above key pair name
-#       which will be used by Ansible to SSH into the instance and perform its operations.
-#   - DATABASE_URL: The application config value for the connection string to the database.
-#   - SECRET: The application config value for the encryption secret used in authentication.
+# Secrets (Settings > Secrets and Variables > Actions > Secrets):
+#   - DATABASE_URL: PostgreSQL connection string (written to SSM by the deploy job)
+#   - SECRET: JWT encryption secret (written to SSM by the deploy job)
 
 name: CI
 on:
@@ -42,16 +41,30 @@ on:
     branches:
       - master
       - develop
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      rebuild_ami:
+        description: 'Force AMI rebuild'
+        required: false
+        type: boolean
+        default: false
 
 env:
-  ANSIBLE_WORKING_DIR: ansible
+  PACKER_WORKING_DIR: packer
   TERRAFORM_WORKING_DIR: terraform
+  APP_NAME: saving-satoshi
+  ENVIRONMENT: ${{ vars.ENVIRONMENT }}
+  DEFAULT_AMI: ami-0786adace1541ca80 # Ubuntu 24.04 us-west-2
   TF_VAR_environment: ${{ vars.ENVIRONMENT }}
   TF_VAR_hosted_zone_id: ${{ vars.AWS_ROUTE53_HOSTED_ZONE_ID }}
   TF_VAR_hostname: ${{ vars.HOSTNAME }}
   TF_VAR_instance_type: ${{ vars.AWS_EC2_INSTANCE_TYPE }}
+  TF_VAR_fallback_instance_types: ${{ vars.AWS_EC2_FALLBACK_INSTANCE_TYPES }}
   TF_VAR_key_pair_name: ${{ vars.AWS_EC2_KEY_PAIR_NAME }}
+  TF_VAR_app_version: ${{ github.ref_name == 'master' && 'master' || 'develop' }}
+  TF_VAR_whitelist: ${{ vars.WHITELIST || 'https://savingsatoshi.com' }}
+  TF_VAR_max_script_execution_time: ${{ vars.MAX_SCRIPT_EXECUTION_TIME || '10000' }}
+  TF_VAR_app_port: ${{ vars.PORT || '8000' }}
 
 jobs:
   check:
@@ -60,9 +73,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # TODO: Select a TypeScript linter and add a check.
-
-      # Terraform checks
+      # Terraform format checks
       - uses: hashicorp/setup-terraform@v3
         name: Setup Terraform
       - name: Terraform Format
@@ -71,6 +82,15 @@ jobs:
       - name: Terraform Format (base)
         run: terraform fmt -check
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}/base
+
+      # Packer format check
+      - name: Setup Packer
+        uses: hashicorp/setup-packer@main
+        with:
+          version: latest
+      - name: Packer Format Check
+        run: packer fmt -check ami.pkr.hcl
+        working-directory: ${{ env.PACKER_WORKING_DIR }}
 
   build-test:
     name: Build & Test
@@ -146,25 +166,66 @@ jobs:
         env:
           NODE_ENV: test
           DATABASE_URL: ${{ env.DATABASE_URL }}
-          # Shorten timeout to 5 seconds
           MAX_SCRIPT_EXECUTION_TIME: 5000
           SECRET: test-secret
 
-  deploy:
-    name: Deploy
+  # AMI builds take ~10 minutes and create a billed AWS snapshot. This job checks whether
+  # any files that affect the server image actually changed, so build-ami is only triggered
+  # when necessary. Changes to application code alone skip straight to deploy.
+  check-ami-changes:
+    name: Check AMI Changes
+    runs-on: ubuntu-latest
+    needs: build-test
+    if: ${{ github.ref_name == 'master' || github.ref_name == 'develop' }}
+    outputs:
+      ami_changed: ${{ steps.changes.outputs.ami }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            ami:
+              - 'packer/**'
+              - 'ansible/playbook-base.yaml'
+              - 'ansible/playbook-runtime.yaml'
+              - 'ansible/requirements.yaml'
+              - 'ansible/saving-satoshi-backend-alb.nginx.j2'
+              - 'ansible/saving-satoshi-backend.service.j2'
+              - 'src/base_images/**'
+
+  # Packer launches a temporary EC2 instance, runs Ansible to install system packages
+  # (Node.js, Docker, Nginx), bakes the REPL Docker base images, warms the Yarn package
+  # cache, then snapshots the result into an AMI. Subsequent instance launches skip all
+  # that setup and boot in seconds instead of minutes. The AMI ID is stored in SSM so
+  # the deploy job can retrieve it even if this job was skipped.
+  build-ami:
+    name: Build AMI
+    runs-on: ubuntu-latest
+    needs: [build-test, check-ami-changes]
+    if: |
+      (needs.check-ami-changes.outputs.ami_changed == 'true') ||
+      (github.event.inputs.rebuild_ami == 'true')
     environment: "${{
       github.ref_name == 'master' && 'production' ||
       github.ref_name == 'develop' && 'staging' ||
       'unknown'
     }}"
-    if: ${{ github.ref_name == 'master' || github.ref_name == 'develop' }}
-    needs: build-test
-    runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
-
+    outputs:
+      ami_id: ${{ steps.packer.outputs.ami_id }}
     steps:
+      - name: Validate required variables
+        run: |
+          if [ -z "${{ env.ENVIRONMENT }}" ]; then
+            echo "::error::ENVIRONMENT is not set. Configure it in Settings > Secrets and Variables > Actions > Variables."
+            exit 1
+          fi
+
       - uses: actions/checkout@v6
 
       - uses: aws-actions/configure-aws-credentials@v5
@@ -173,9 +234,99 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
 
+      - name: Setup Packer
+        uses: hashicorp/setup-packer@main
+        with:
+          version: latest
+
+      - name: Packer Init
+        run: packer init ami.pkr.hcl
+        working-directory: ${{ env.PACKER_WORKING_DIR }}
+
+      - name: Packer Build
+        id: packer
+        run: |
+          set -o pipefail
+          packer build \
+            -var "aws_region=${{ vars.AWS_REGION }}" \
+            -var "environment=${{ env.ENVIRONMENT }}" \
+            -var-file=variables.pkrvars.hcl \
+            -machine-readable \
+            ami.pkr.hcl | tee packer.log
+
+          # Extract AMI ID from manifest
+          AMI_ID=$(cat manifest.json | jq -r '.builds[-1].artifact_id' | cut -d':' -f2)
+          echo "ami_id=$AMI_ID" >> $GITHUB_OUTPUT
+          echo "Built AMI: $AMI_ID"
+        working-directory: ${{ env.PACKER_WORKING_DIR }}
+
+      - name: Store AMI ID in SSM
+        run: |
+          aws ssm put-parameter \
+            --name "/${{ env.APP_NAME }}/${{ env.ENVIRONMENT }}/ami-id" \
+            --value "${{ steps.packer.outputs.ami_id }}" \
+            --type String \
+            --overwrite
+
+  deploy:
+    name: Deploy
+    environment: "${{
+      github.ref_name == 'master' && 'production' ||
+      github.ref_name == 'develop' && 'staging' ||
+      'unknown'
+    }}"
+    needs: [build-test, check-ami-changes, build-ami]
+    # Run if build-ami succeeded or was skipped (no AMI changes), but not if it failed
+    if: |
+      always() &&
+      needs.build-test.result == 'success' &&
+      (needs.build-ami.result == 'success' || needs.build-ami.result == 'skipped') &&
+      (github.ref_name == 'master' || github.ref_name == 'develop')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Validate required variables
+        run: |
+          if [ -z "${{ env.ENVIRONMENT }}" ]; then
+            echo "::error::ENVIRONMENT is not set. Configure it in Settings > Secrets and Variables > Actions > Variables."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v6
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        name: Configure AWS Credentials
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # Get AMI ID from SSM (either just built or previously stored)
+      - name: Get AMI ID
+        id: ami
+        run: |
+          AMI_ID=$(aws ssm get-parameter \
+            --name "/${{ env.APP_NAME }}/${{ env.ENVIRONMENT }}/ami-id" \
+            --query Parameter.Value \
+            --output text 2>/dev/null || echo "")
+
+          # Fallback to default AMI if not found
+          if [ -z "$AMI_ID" ] || [ "$AMI_ID" == "None" ]; then
+            AMI_ID="${{ env.DEFAULT_AMI }}"
+            echo "Using default AMI: $AMI_ID"
+          else
+            echo "Using AMI from SSM: $AMI_ID"
+          fi
+          echo "ami_id=$AMI_ID" >> $GITHUB_OUTPUT
+
       # Terraform
       - uses: hashicorp/setup-terraform@v3
         name: Setup Terraform
+        with:
+          terraform_wrapper: false
+
       - name: Terraform Init
         run: |
           terraform init \
@@ -183,47 +334,58 @@ jobs:
             -backend-config="key=${{ vars.AWS_S3_TERRAFORM_STATE_OBJECT_KEY }}" \
             -backend-config="region=${{ vars.AWS_REGION }}"
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+
+      # Write secrets to SSM before Terraform so any instance the ASG launches
+      # immediately after stack creation gets the real values, not "placeholder".
+      # put-parameter --overwrite is an upsert — safe to run before the Terraform
+      # resource exists on a fresh stack.
+      - name: Write secrets to SSM
+        run: |
+          SSM_PREFIX="/${{ env.APP_NAME }}/${{ env.ENVIRONMENT }}"
+
+          aws ssm put-parameter \
+            --name "$SSM_PREFIX/database-url" \
+            --value "${{ secrets.DATABASE_URL }}" \
+            --type SecureString \
+            --overwrite
+
+          aws ssm put-parameter \
+            --name "$SSM_PREFIX/secret" \
+            --value "${{ secrets.SECRET }}" \
+            --type SecureString \
+            --overwrite
+
       - name: Terraform Apply
         run: |
-          terraform apply -auto-approve
-          echo "TERRAFORM_APPLY_OUTPUT_IP_ADDRESS=$(terraform output -raw ip_address)" \
-            >> $GITHUB_ENV
+          terraform apply -auto-approve \
+            -var="ami=${{ steps.ami.outputs.ami_id }}"
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
 
-      # Ansible
-      - name: Install Ansible Dependencies
+      # Terraform does not auto-refresh when the ASG launch template uses version="$Latest"
+      # because the reference string never changes even after a new version is created.
+      # This step triggers a rolling replacement: new servers are launched and must pass
+      # health checks for 180s before old servers are terminated. MinHealthyPercentage=100
+      # ensures at least one server is always in service throughout the rollout.
+      - name: Start Instance Refresh
         run: |
-          sudo apt-get install -y ansible
-          ansible-galaxy install -r ${{ env.ANSIBLE_WORKING_DIR }}/requirements.yaml
+          ASG_NAME=$(terraform output -raw asg_name)
 
-          # SSH
-          mkdir ~/.ssh
-          cat <<'EOF' > ~/.ssh/ec2.pem
-          ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY }}
-          EOF
-          chmod 600 ~/.ssh/ec2.pem
-          ssh-keyscan -H ${{ env.TERRAFORM_APPLY_OUTPUT_IP_ADDRESS }} >> ~/.ssh/known_hosts
+          echo "Triggering instance refresh for $ASG_NAME..."
+          aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "$ASG_NAME" \
+            --preferences '{
+              "MinHealthyPercentage": 100,
+              "InstanceWarmup": 180,
+              "SkipMatching": false
+            }' || echo "Instance refresh may already be in progress"
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
 
-          # Environment
-          cat <<'EOF' > ${{ github.workspace }}/.env
-          DATABASE_URL=${{ secrets.DATABASE_URL }}
-          MAX_SCRIPT_EXECUTION_TIME=${{ env.MAX_SCRIPT_EXECUTION_TIME || '10000' }}
-          PORT=${{ env.PORT || '8000' }}
-          SECRET=${{ secrets.SECRET }}
-          WHITELIST=${{ env.WHITELIST || 'https://savingsatoshi.com' }}
-          EOF
-      - uses: dawidd6/action-ansible-playbook@v5
-        name: Run Ansible Playbook
-        with:
-          playbook: playbook.yaml
-          directory: ${{ env.ANSIBLE_WORKING_DIR }}
-          inventory: |
-            app:
-              hosts:
-                ${{ env.TERRAFORM_APPLY_OUTPUT_IP_ADDRESS }}:
-                  ansible_user: ubuntu
-                  ansible_ssh_private_key_file: "~/.ssh/ec2.pem"
-                  aws_region: ${{ vars.AWS_REGION }}
-                  hostname: ${{ vars.HOSTNAME }}
-                  cert_email: ${{ vars.CERT_EMAIL }}
-                  env_config: ${{ github.workspace }}/.env
+      # Output deployment info
+      - name: Deployment Summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **AMI ID**: ${{ steps.ami.outputs.ami_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **App Version**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **AMI Rebuilt**: ${{ needs.build-ami.result != 'skipped' }}" >> $GITHUB_STEP_SUMMARY
