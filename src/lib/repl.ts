@@ -33,6 +33,9 @@ export async function run(code: string, language: string, context: any) {
   const userCodePath = path.join(rpath, config.mainFile)
 
   const send = async (payload: any) => {
+    if (context.socket.readyState !== context.socket.OPEN) {
+      return
+    }
     context.socket.send(
       JSON.stringify({ ...payload, payload: payload.payload })
     )
@@ -58,14 +61,33 @@ export async function run(code: string, language: string, context: any) {
         Memory: 256 * 1024 * 1024,
         AutoRemove: true,
       },
-    };
+    }
 
-    let timedOut = false
+    // Single idempotent stop function, whichever path wins (timeout, client disconnect,
+    // normal finish) calls this. The flag ensures the container is stopped at most once.
+    let containerStopped = false
+    const stopContainer = async (reason: string) => {
+      if (containerStopped) return
+      containerStopped = true
+      try {
+        const container = docker.getContainer(id)
+        await container.stop()
+        logger.info(`Container ${id} stopped: ${reason}`)
+      } catch (e) {
+        // Container may not exist yet, already stopped, or already removed
+        logger.debug(`Could not stop container ${id}: ${e.message}`)
+      }
+    }
+
+    // Stop the container immediately if the client disconnects mid-execution.
+    context.socket.once('close', () => {
+      logger.warn(`Client disconnected during container ${id} execution.`)
+      stopContainer('client disconnected')
+    })
 
     await new Promise<void>((resolve, reject) => {
       // Setup a timeout in case user submitted code contains long-running processes.
       const timeoutId = setTimeout(async () => {
-        timedOut = true
         logger.warn(`Container ${id} timed out after ${MAX_SCRIPT_EXECUTION_TIME}ms`)
 
         // Send error back to client.
@@ -79,15 +101,7 @@ export async function run(code: string, language: string, context: any) {
         send({ type: 'end', payload: false, channel: 'runtime' })
 
         // Stop timed-out container by name - avoids race condition with container event.
-        try {
-          const container = docker.getContainer(id)
-          await container.stop()
-          logger.info(`Container ${id} stopped by timeout handler`)
-        } catch (e) {
-          // Container may not exist yet, already stopped, or already removed
-          logger.debug(`Could not stop container ${id}: ${e.message}`)
-        }
-
+        await stopContainer('timeout')
         resolve()
       }, MAX_SCRIPT_EXECUTION_TIME)
 
@@ -95,9 +109,10 @@ export async function run(code: string, language: string, context: any) {
       docker.run(config.baseImage, config.command, runStream, options, (err, data) => {
         clearTimeout(timeoutId)
 
-        if (timedOut) {
-          return
-        }
+          // Container already handled by a timeout or client disconnect thus nothing else left to do.
+          if (containerStopped) {
+            return
+          }
 
         let success = true
         if (err) {
