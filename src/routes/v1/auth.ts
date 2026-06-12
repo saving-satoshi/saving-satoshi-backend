@@ -28,7 +28,9 @@ router.post('/register', async (req, res) => {
     })
 
     if (existingAccount) {
-      throw new Error('Account already exists.')
+      return res.status(409).json({
+        errors: [{ message: 'Account already exists.' }],
+      })
     }
 
     // Create a new account
@@ -76,7 +78,9 @@ router.post('/login', async (req, res) => {
     })
 
     if (!account) {
-      throw new Error('Invalid credentials.')
+      return res.status(401).json({
+        errors: [{ message: 'Invalid credentials.' }],
+      })
     }
 
     const token = await generate(account)
